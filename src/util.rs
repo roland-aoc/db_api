@@ -2,6 +2,12 @@ pub fn check_len(data: &str) -> usize {
     data.chars().count()
 }
 
+pub fn not_null(data: &str) -> Option<&str> {
+    data.?;
+    //chapter 6.1
+    ""
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -24,5 +30,10 @@ mod tests {
     #[test]
     fn check_len_test4() {
         assert_eq!(check_len("Car 😀"), 5);
+    }
+    
+    #[test]
+    fn not_null_test1() {
+        assert_eq!(not_null(""), "");
     }
 }

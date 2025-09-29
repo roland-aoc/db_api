@@ -1,11 +1,21 @@
 use crate::domain::Boat;
+use crate::util;
+
 pub fn payload_to_model(data: &str) -> &str {
+    let email = email(data);
+    validate(email);
+    
     let boat= Boat {id: 1, name: String::from("MyBoat")};
-    email(data)
+    data
 }
 
 fn email(data: &str) -> &str {
     "writerolandkurmann@gmail.com"
+}
+
+fn validate(input: &str) {
+    print!("{input}");
+    let len = util::check_len("");
 }
 
 #[cfg(test)]
