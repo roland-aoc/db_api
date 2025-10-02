@@ -8,7 +8,7 @@ mod tests {
     fn it_receives_raw_request() {
         let data = std::fs::read_to_string("tests/fixtures/raw_request.json")
             .expect("could not read fixture");
-        assert_ne!(server::receive(Some(&data)).unwrap(), "");
+        assert_eq!(server::receive(Some(&data)).unwrap(), "form");
     }
 
     #[test]

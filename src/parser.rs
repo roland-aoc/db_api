@@ -1,12 +1,19 @@
 use crate::domain::Boat;
 use crate::util;
+use serde_json;
 
-pub fn payload_to_model(data: &str) -> &str {
+pub fn payload_to_model(data: &str) -> String {
     let email = email(data);
     validate(email);
-    
-    let boat= Boat {id: 1, name: String::from("MyBoat")};
-    data
+
+    // let boat= Boat {id: 1, name: String::from("MyBoat")};
+    let boat: Result<Boat, _> = serde_json::from_str(data);
+    match boat {
+        Ok(t) => t.submitSource,
+        Err(e) => panic!("Can't parse data to boat, {:?}", e)
+    }
+    // if boat.unwrap().submitData == "1234"
+    // data
 }
 
 fn email(data: &str) -> &str {
