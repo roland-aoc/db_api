@@ -2,10 +2,11 @@ pub fn check_len(data: &str) -> usize {
     data.chars().count()
 }
 
-pub fn not_null(data: &str) -> Option<&str> {
-    data.?;
-    //chapter 6.1
-    ""
+pub fn not_null(data: Option<&str>) -> Option<&str> {
+    match data {
+        Some(data) => Some(data),
+        None => None
+    }
 }
 
 #[cfg(test)]
@@ -34,6 +35,6 @@ mod tests {
     
     #[test]
     fn not_null_test1() {
-        assert_eq!(not_null(""), "");
+        assert_eq!(not_null(Some("")), Some(""));
     }
 }

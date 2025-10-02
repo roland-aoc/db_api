@@ -1,9 +1,9 @@
-mod util;
-mod parser;
-mod domain;
+use server;
 
 fn main() {
     let input = "";
-    parser::payload_to_model(input);
+    server::receive(Some(input));
+    println!("Hello, World!")
+    // parser::payload_to_model(input);
 }
 

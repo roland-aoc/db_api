@@ -1,0 +1,45 @@
+{
+    "slug": "submit\/252325102050337",
+    "jsExecutionTracker": "build-date-1759380889258=>init-started:1759380883664=>validator-called:1759380883670=>validator-mounted-false:1759380883670=>init-complete:1759380883672=>onsubmit-fired:1759380890032=>observerSubmitHandler_received-submit-event:1759380890032=>submit-validation-passed:1759380890052=>observerSubmitHandler_validation-passed-submitting-form:1759380890056",
+    "submitSource": "form",
+    "submitDate": "1759380890056",
+    "buildDate": "1759380889258",
+    "uploadServerUrl": "https:\/\/upload.jotform.com\/upload",
+    "eventObserver": "1",
+    "q3_fullName3": {
+        "first": "textbox_sample0",
+        "last": "textbox_sample1"
+    },
+    "q4_address4": {
+        "addr_line1": "111 Pine Street",
+        "addr_line2": "",
+        "city": "San Francisco",
+        "state": "CA",
+        "postal": "94111"
+    },
+    "q5_phoneNumber5": {
+        "full": "(111) 111-1111"
+    },
+    "q6_email6": "john@example.com",
+    "q8_howDid8": "Newspaper",
+    "q9_pleaseSpecify": "",
+    "q11_feedbackAbout11": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean mollis ultricies interdum. Nullam pharetra vitae lectus eget volutpat. Integer in sodales ligula. Vestibulum pellentesque arcu in est aliquam rhoncus. Curabitur et dui quis arcu scelerisque congue. Pellentesque libero ligula, sagittis a tempus quis, finibus eget erat. Nunc sed tempor nunc. Mauris tempor odio id lorem commodo dapibus. Nulla viverra mi in magna imperdiet volutpat.",
+    "q12_suggestionsIf": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean mollis ultricies interdum. Nullam pharetra vitae lectus eget volutpat. Integer in sodales ligula. Vestibulum pellentesque arcu in est aliquam rhoncus. Curabitur et dui quis arcu scelerisque congue. Pellentesque libero ligula, sagittis a tempus quis, finibus eget erat. Nunc sed tempor nunc. Mauris tempor odio id lorem commodo dapibus. Nulla viverra mi in magna imperdiet volutpat.",
+    "q15_willYou15": "Yes",
+    "q14_pleaseGive14": [
+        [
+            "textbox_sample10",
+            "textbox_sample11",
+            "textbox_sample12"
+        ],
+        [
+            "textbox_sample13",
+            "textbox_sample14",
+            "textbox_sample15"
+        ]
+    ],
+    "timeToSubmit": "6",
+    "preview": "true",
+    "validatedNewRequiredFieldIDs": "{\"new\":1,\"id_3\":\"te\",\"id_4\":\"94\",\"id_5\":\"(1\",\"id_8\":\"Ne\"}",
+    "path": "\/submit\/252325102050337"
+}
