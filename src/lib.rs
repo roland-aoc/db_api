@@ -1,10 +1,9 @@
 mod util;
 mod parser;
-mod domain;
+mod model;
+mod controller;
+mod service;
 
-pub fn receive(data: Option<&str>) -> Option<&str>{
-    if let Some(pass_on) = data {
-        parser::payload_to_model(&pass_on);
-    }
-    data
+pub fn receive(data: Option<&str>) {
+    controller::post(data);
 }
