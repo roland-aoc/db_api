@@ -1,7 +1,7 @@
-use crate::parser;
-use crate::model::http::Form;
-use crate::model::domain::Boat;
+use crate::{repository};
+use crate::model::{http, domain, mapper};
 
-pub fn persist(form: Form) {
-    let model: Option<Form> = Some(parser::to_model::<Boat>(form));
+pub fn handle(payload: http::Payload) -> Result<(), Box<dyn std::error::Error>>{
+    let model: Option<domain::DataSet> = Some(mapper::to_model::<domain::DataSet>(payload));
+    repository::persist(model.expect("Model is empty!"))
 }

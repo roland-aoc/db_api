@@ -1,16 +1,24 @@
 use crate::model::domain::Boat;
+use crate::model::http::Payload;
 use crate::util;
-use crate::model::http::Form;
 
 use serde;
-use serde_json::{self, Error};
 
-pub fn to_model<T: serde::Deserialize>(payload: Form) -> T {
-    let email = email("payload"); //FIXME payload
+pub fn to_model<T>(payload: Payload) -> T {
+    let map = std::collections::HashMap::from([
+        ("q6_email6", "given_name"),
+        ("rumpfmaterial", "surname"),
+        ("rigg_typ", "years_old"),
+    ]);
+
+    //or macro to parse file ,
+
+    let email = email("payload");
     validate(email);
 
-    let t: Result<T, _> = serde_json::from_str(payload);
-    t
+    // let t: Result<T, _> = serde_json::from_str(payload);
+    let t: Option<T> = None;
+    t.unwrap() //FIXME
 
     // match boat {
     //     Ok(t) => t,
