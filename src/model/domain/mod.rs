@@ -6,7 +6,8 @@ pub struct Boat {
     submitSource: String
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct DataSet {
-    boat: Boat,
+    // pub boat: Boat,
+    pub email: String,
 }

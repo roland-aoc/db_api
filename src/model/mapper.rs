@@ -1,24 +1,32 @@
-use crate::model::domain::Boat;
+use crate::model::domain::{Boat, DataSet};
 use crate::model::http::Payload;
-use crate::util;
 
 use serde;
 
-pub fn to_model<T>(payload: Payload) -> T {
-    let map = std::collections::HashMap::from([
-        ("q6_email6", "given_name"),
-        ("rumpfmaterial", "surname"),
-        ("rigg_typ", "years_old"),
-    ]);
+impl From<Payload> for DataSet {
+    fn from(payload: Payload) -> Self {
+        Self {
+            email: payload.q6_email6,
+        }
+    }
+}
+
+// pub fn to_model<T>(payload: Payload) ->Result<(), Box<dyn std::error::Error>> {
+pub fn to_data_set(payload: Payload) -> DataSet {
+    return payload.into();
+
+    // let t: Option<T> = None;
+    // t.unwrap() //FIXME
+
+    // let fields = std::collections::HashMap::from([
+    //     ("q6_email6", "email"),
+    //     ("q7_rumpfmaterial", "rumpfmaterial"),
+    //     ("q8_rigg_typ", "rigg_typ"),
+    // ]);
+    // for (from, to) in fields {}
 
     //or macro to parse file ,
-
-    let email = email("payload");
-    validate(email);
-
     // let t: Result<T, _> = serde_json::from_str(payload);
-    let t: Option<T> = None;
-    t.unwrap() //FIXME
 
     // match boat {
     //     Ok(t) => t,
@@ -34,27 +42,18 @@ pub fn to_model<T>(payload: Payload) -> T {
     // // if boat.unwrap().submitData == "1234"
     // // data
 }
-
-fn email(data: &str) -> &str {
-    "writerolandkurmann@gmail.com"
-}
-
-fn validate(input: &str) {
-    print!("{input}");
-    let len = util::check_len("");
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn email_test1() {
-        assert_eq!(
-            email(
-                "{ \"id\": null, \"name\": \"Sea Breeze\", \"boat_type\": \"Sail\", \"length\": 12.5, \"year\": 2018 }"
-            ),
-            "writerolandkurmann@gmail.com"
-        );
+    fn to_model_test1() {
+        let input = Payload { 
+            q6_email6: String::from("writerolandkurmann@gmail.com"), 
+            rumpfmaterial: crate::model::http::Rumpfmaterial::ALUMINIUM, 
+            rigg_typ: String::from("") 
+        };
+        // let model = to_model::<DataSet>(input);
+        // assert_eq!(model, DataSet {email: String::from("writerolandkurmann@gmail.com")});
     }
 }
