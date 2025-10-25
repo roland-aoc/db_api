@@ -1,0 +1,1 @@
+pub struct DatabaseError(pub Box<dyn std::error::Error>);

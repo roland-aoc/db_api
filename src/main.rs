@@ -6,4 +6,3 @@ fn main() {
     println!("{input}")
     // parser::payload_to_model(input);
 }
-

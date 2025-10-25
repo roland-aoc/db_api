@@ -8,11 +8,11 @@ pub fn handle(payload: http::Payload) -> Result<(), Box<dyn std::error::Error>> 
     validate(&model.email);
 
     // repository::persist(model.expect("Model is empty!"))
-    repository::persist(model)
+    repository::create(model)
 }
 
 fn validate(input: &str) {
-    print!("Validate email, which is {input}");
+    println!("Validate email, which is {input}");
     let len = util::check_len("");
 }
 

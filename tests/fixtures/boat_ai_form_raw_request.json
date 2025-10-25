@@ -1,0 +1,53 @@
+{
+    "slug": "submit\/252805306138050",
+    "jsExecutionTracker": "build-date-1759951261762=>init-started:1759951267366=>validator-called:1759951267380=>validator-mounted-false:1759951267380=>init-complete:1759951267384=>onsubmit-fired:1759951270938=>observerSubmitHandler_received-submit-event:1759951270939=>submit-validation-passed:1759951270959=>observerSubmitHandler_validation-passed-submitting-form:1759951270964",
+    "submitSource": "form",
+    "submitDate": "1759951270964",
+    "buildDate": "1759951261762",
+    "uploadServerUrl": "https:\/\/upload.jotform.com\/upload",
+    "eventObserver": "1",
+    "q2_q2_fullname0": {
+        "first": "textbox_sample0",
+        "last": "textbox_sample1"
+    },
+    "q32_rumpfmaterial": "Stahl",
+    "q4_rigg_typ": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean mollis ultricies interdum. Nullam pharetra vitae lectus eget volutpat. Integer in sodales ligula. Vestibulum pellentesque arcu in est aliquam rhoncus. Curabitur et dui quis arcu scelerisque congue. Pellentesque libero ligula, sagittis a tempus quis, finibus eget erat. Nunc sed tempor nunc. Mauris tempor odio id lorem commodo dapibus. Nulla viverra mi in magna imperdiet volutpat.",
+    "q5_laenge": "123",
+    "q6_breite": "123",
+    "q7_tiefgang": "123",
+    "q8_q8_textarea6": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean mollis ultricies interdum. Nullam pharetra vitae lectus eget volutpat. Integer in sodales ligula. Vestibulum pellentesque arcu in est aliquam rhoncus. Curabitur et dui quis arcu scelerisque congue. Pellentesque libero ligula, sagittis a tempus quis, finibus eget erat. Nunc sed tempor nunc. Mauris tempor odio id lorem commodo dapibus. Nulla viverra mi in magna imperdiet volutpat.",
+    "q9_kielmaterial": "textbox_sample5",
+    "q10_verdraengung": "123",
+    "q11_gesamtgewicht": "123",
+    "q12_anzahl_motoren": "1",
+    "q13_leistung_je_motor": "123",
+    "q14_motorenhersteller": "textbox_sample10",
+    "q15_motorenmodelle": "textbox_sample11",
+    "q16_motorennummern": "textbox_sample12",
+    "q17_motorenstunden": "textbox_sample13",
+    "q18_name_des_bootes": "textbox_sample14",
+    "q19_hin": "textbox_sample15",
+    "q20_trailer_oder_lagerbock": [
+        "Yes"
+    ],
+    "q21_ce_zertifikat": [
+        "Yes"
+    ],
+    "q22_mwst_nachweis": [
+        "Yes"
+    ],
+    "q23_eigentumsnachweis": [
+        "Yes"
+    ],
+    "q24_bootsschein_flaggenzertifikat_bootspapiere": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean mollis ultricies interdum. Nullam pharetra vitae lectus eget volutpat. Integer in sodales ligula. Vestibulum pellentesque arcu in est aliquam rhoncus. Curabitur et dui quis arcu scelerisque congue. Pellentesque libero ligula, sagittis a tempus quis, finibus eget erat. Nunc sed tempor nunc. Mauris tempor odio id lorem commodo dapibus. Nulla viverra mi in magna imperdiet volutpat.",
+    "q25_vorheriges_fahrtgebiet": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean mollis ultricies interdum. Nullam pharetra vitae lectus eget volutpat. Integer in sodales ligula. Vestibulum pellentesque arcu in est aliquam rhoncus. Curabitur et dui quis arcu scelerisque congue. Pellentesque libero ligula, sagittis a tempus quis, finibus eget erat. Nunc sed tempor nunc. Mauris tempor odio id lorem commodo dapibus. Nulla viverra mi in magna imperdiet volutpat.",
+    "q26_anzahl_voreigner": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean mollis ultricies interdum. Nullam pharetra vitae lectus eget volutpat. Integer in sodales ligula. Vestibulum pellentesque arcu in est aliquam rhoncus. Curabitur et dui quis arcu scelerisque congue. Pellentesque libero ligula, sagittis a tempus quis, finibus eget erat. Nunc sed tempor nunc. Mauris tempor odio id lorem commodo dapibus. Nulla viverra mi in magna imperdiet volutpat.",
+    "q27_standzeit": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean mollis ultricies interdum. Nullam pharetra vitae lectus eget volutpat. Integer in sodales ligula. Vestibulum pellentesque arcu in est aliquam rhoncus. Curabitur et dui quis arcu scelerisque congue. Pellentesque libero ligula, sagittis a tempus quis, finibus eget erat. Nunc sed tempor nunc. Mauris tempor odio id lorem commodo dapibus. Nulla viverra mi in magna imperdiet volutpat.",
+    "q28_antifoulingsystem": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean mollis ultricies interdum. Nullam pharetra vitae lectus eget volutpat. Integer in sodales ligula. Vestibulum pellentesque arcu in est aliquam rhoncus. Curabitur et dui quis arcu scelerisque congue. Pellentesque libero ligula, sagittis a tempus quis, finibus eget erat. Nunc sed tempor nunc. Mauris tempor odio id lorem commodo dapibus. Nulla viverra mi in magna imperdiet volutpat.",
+    "q29_beseglung": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean mollis ultricies interdum. Nullam pharetra vitae lectus eget volutpat. Integer in sodales ligula. Vestibulum pellentesque arcu in est aliquam rhoncus. Curabitur et dui quis arcu scelerisque congue. Pellentesque libero ligula, sagittis a tempus quis, finibus eget erat. Nunc sed tempor nunc. Mauris tempor odio id lorem commodo dapibus. Nulla viverra mi in magna imperdiet volutpat.",
+    "q30_alter_stehendes_gut": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean mollis ultricies interdum. Nullam pharetra vitae lectus eget volutpat. Integer in sodales ligula. Vestibulum pellentesque arcu in est aliquam rhoncus. Curabitur et dui quis arcu scelerisque congue. Pellentesque libero ligula, sagittis a tempus quis, finibus eget erat. Nunc sed tempor nunc. Mauris tempor odio id lorem commodo dapibus. Nulla viverra mi in magna imperdiet volutpat.",
+    "timeToSubmit": "3",
+    "preview": "true",
+    "validatedNewRequiredFieldIDs": "{\"new\":1}",
+    "path": "\/submit\/252805306138050"
+}
