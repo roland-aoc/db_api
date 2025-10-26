@@ -1,12 +1,10 @@
-use crate::model::domain::{Boat, DataSet};
+use crate::model::domain::DataSet;
 use crate::model::http::Payload;
-
-use serde;
 
 impl From<Payload> for DataSet {
     fn from(payload: Payload) -> Self {
         Self {
-            email: payload.q6_email6,
+            length: payload.q5_laenge.parse::<u8>().unwrap(),
         }
     }
 }
@@ -48,10 +46,10 @@ mod tests {
 
     #[test]
     fn to_model_test1() {
-        let input = Payload { 
-            q6_email6: String::from("writerolandkurmann@gmail.com"), 
-            rumpfmaterial: crate::model::http::Rumpfmaterial::ALUMINIUM, 
-            rigg_typ: String::from("") 
+        let _input = Payload { 
+            q5_laenge: String::from("123"), 
+            q32_rumpfmaterial: crate::model::http::Rumpfmaterial::ALUMINIUM, 
+            q4_rigg_typ: String::from("") 
         };
         // let model = to_model::<DataSet>(input);
         // assert_eq!(model, DataSet {email: String::from("writerolandkurmann@gmail.com")});

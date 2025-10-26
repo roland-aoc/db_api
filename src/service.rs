@@ -1,22 +1,22 @@
-use crate::model::{domain, http, mapper};
+use crate::model::{http, mapper};
 use crate::repository;
 use crate::util;
 
 pub fn handle(payload: http::Payload) -> Result<(), Box<dyn std::error::Error>> {
     // let model: Option<domain::DataSet> = Some(mapper::to_model::<domain::DataSet>(payload));
     let model = mapper::to_data_set(payload);
-    validate(&model.email);
+    validate(model.length);
 
     // repository::persist(model.expect("Model is empty!"))
     repository::create(model)
 }
 
-fn validate(input: &str) {
+fn validate(input: u8) {
     println!("Validate email, which is {input}");
-    let len = util::check_len("");
+    let _len = util::check_len("");
 }
-
-fn email(data: &str) -> &str {
+#[allow(dead_code)]
+fn email(_data: &str) -> &str {
     "writerolandkurmann@gmail.com"
 }
 

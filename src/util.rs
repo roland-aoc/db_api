@@ -2,6 +2,7 @@ pub fn check_len(data: &str) -> usize {
     data.chars().count()
 }
 
+#[allow(dead_code)]
 pub fn not_null(data: Option<&str>) -> Option<&str> {
     match data {
         Some(data) => Some(data),

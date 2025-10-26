@@ -1,14 +1,15 @@
-use serde_json;
 use serde;
 
 #[derive(serde::Deserialize, Debug)]
+#[allow(dead_code)]
 pub struct Payload {
-    pub q6_email6: String,
-    pub rumpfmaterial: Rumpfmaterial,
-    pub rigg_typ: String
+    pub q5_laenge: String,
+    pub q32_rumpfmaterial: Rumpfmaterial,
+    pub q4_rigg_typ: String,
 }
 
 #[derive(serde::Deserialize, Debug)]
+#[allow(dead_code)]
 pub enum Rumpfmaterial {
     STAHL,
     GFK,

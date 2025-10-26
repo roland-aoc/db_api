@@ -1,8 +1,7 @@
 use crate::service;
 use crate::model::http::Payload;
-use crate::model::http::Rumpfmaterial;
 
-use serde_json::{self, Error};
+use serde_json::{self};
 
 pub fn post(request_body: String) -> Result<(), Box<dyn std::error::Error>> {
     // if let Some(pass_on) = data {
@@ -19,6 +18,6 @@ pub fn post(request_body: String) -> Result<(), Box<dyn std::error::Error>> {
     // println!("Payload result: {:?}", payload.as_ref());
     match payload {
         Ok(p) => service::handle(p),
-        Err(e) => panic!("Error while parsing payload, {e:}")
+        Err(e) => Err(Box::from(e))
     }
 }

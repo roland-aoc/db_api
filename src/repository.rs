@@ -1,39 +1,45 @@
-use std::error::Error;
-
-use crate::infrastructure::database::connection::{self};
-use crate::infrastructure::database::error::DatabaseError;
+use crate::infrastructure::database::{self, ActiveConnection, Row};
+use crate::infrastructure::database::DatabaseError;
 use crate::model::domain::DataSet;
 
 pub fn create(data_set: DataSet) -> Result<(), Box<dyn std::error::Error>> {
     match persist(data_set) {
-        Ok(p) => panic!("Works"),
-        Err(E) => panic!("doesn't work"),
+        Ok(_p) => Ok(()),
+        Err(_e) => Err(Box::from("Create didn't work")), //TODO create traceable error
     }
-    Ok(())
 }
 
-pub fn read() -> Result<(), Box<dyn std::error::Error>> {
-    Ok(())
-}
+// pub fn read() -> Result<(), Box<dyn std::error::Error>> {
+//     Ok(())
+// }
 
-pub fn update() -> Result<(), Box<dyn std::error::Error>> {
-    Ok(())
-}
+// pub fn update() -> Result<(), Box<dyn std::error::Error>> {
+//     Ok(())
+// }
 
-pub fn delete() -> Result<(), Box<dyn std::error::Error>> {
-    Ok(())
-}
+// pub fn delete() -> Result<(), Box<dyn std::error::Error>> {
+//     Ok(())
+// }
 
 fn persist(data_set: DataSet) -> Result<(), Box<dyn std::error::Error>> {
-    // let greeting_file = File::open("hello.txt")?;
-    // Ok(())
-    match connection::connect() {
-        Ok(c) => Ok(()),
+    // :Result<Connection, Box<dyn std::error::Error>>
+    match database::connect() {
+        Ok(mut connection) => {
+            let rows = build_insertion_rows(data_set);
+            connection.insert(rows, "");
+            Ok(())
+        },
         Err(e) => {
             let DatabaseError(dbe) = e;
             let s = dbe.to_string();
             Err(s.into())},
     }
+}
+
+fn build_insertion_rows(_data_set: DataSet) -> Vec<Row> {
+    let v = vec!();
+    // for data_set 
+    v
 }
 
 // fn persist(data_set: DataSet) -> Result<(), jdbc::errors::Error> {
@@ -66,7 +72,7 @@ mod tests {
     fn persist_test1() {
         dotenvy::dotenv().ok();
         let data_set = DataSet {
-            email: String::from(""),
+            length: 123,
         };
         persist(data_set).expect("");
     }
