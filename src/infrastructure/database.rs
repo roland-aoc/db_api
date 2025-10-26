@@ -2,8 +2,8 @@ use crate::util::{self};
 
 use postgres::{Client, NoTls};
 pub struct DatabaseError(pub Box<dyn std::error::Error>);
-pub struct Row {
-    pub label: String,
+pub struct Field {
+    pub name: String,
     pub sql_type: String,
 }
 pub struct Query {}
@@ -22,7 +22,7 @@ impl Connection {
 }
 
 pub trait ActiveConnection {
-    fn insert(&mut self, rows: Vec<Row>, table_name: &str) -> Result<(), DatabaseError>;
+    fn insert(&mut self, fields: Vec<Field>, table_name: &str) -> Result<(), DatabaseError>;
     #[allow(dead_code)]
     fn execute(&mut self, query: Query);
     #[allow(dead_code)]
@@ -30,10 +30,10 @@ pub trait ActiveConnection {
 }
 
 impl ActiveConnection for Connection {
-    fn insert(&mut self, rows: Vec<Row>, table_name: &str) -> Result<(), DatabaseError> {
+    fn insert(&mut self, fields: Vec<Field>, table_name: &str) -> Result<(), DatabaseError> {
         if util::is_sql(table_name) {
-            for field in rows {
-                println!("label: {}, sql_type: {}", field.label, field.sql_type)
+            for field in fields {
+                println!("name: {}, sql_type: {}", field.name, field.sql_type)
             }
             Err(DatabaseError(Box::from("SQL-like syntax is not allowed")))
         } else {

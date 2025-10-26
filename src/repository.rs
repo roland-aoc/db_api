@@ -1,4 +1,4 @@
-use crate::infrastructure::database::{self, ActiveConnection, Row};
+use crate::infrastructure::database::{self, ActiveConnection, Field};
 use crate::infrastructure::database::DatabaseError;
 use crate::model::domain::DataSet;
 
@@ -39,8 +39,8 @@ fn persist(data_set: DataSet) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-fn build_insertion_rows(_data_set: DataSet) -> Vec<Row> {
-    let v = vec!(Row {label: String::from("length"), sql_type: String::from("int")});
+fn build_insertion_rows(_data_set: DataSet) -> Vec<Field> {
+    let v = vec!(Field {name: String::from("length"), sql_type: String::from("int")});
     // for data_set 
     v
 }
