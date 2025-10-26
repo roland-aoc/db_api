@@ -12,11 +12,11 @@
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=server",
-                    "--package=server"
+                    "--bin=db_api",
+                    "--package=db_api"
                 ],
                 "filter": {
-                    "name": "server",
+                    "name": "db_api",
                     "kind": "bin"
                 }
             },
@@ -31,11 +31,11 @@
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=server",
-                    "--package=server"
+                    "--bin=db_api",
+                    "--package=db_api"
                 ],
                 "filter": {
-                    "name": "server",
+                    "name": "db_api",
                     "kind": "bin"
                 }
             },

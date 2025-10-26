@@ -1,4 +1,4 @@
-use server;
+use db_api;
 
 #[cfg(test)]
 mod tests {
@@ -10,7 +10,7 @@ mod tests {
         dotenvy::dotenv().ok();
         let data = std::fs::read_to_string("tests/fixtures/raw_request.json")
             .expect("could not read fixture");
-        assert!(server::receive(data).is_ok());
+        assert!(db_api::receive(data).is_ok());
     }
 
     // #[ignore]
@@ -19,7 +19,7 @@ mod tests {
         dotenvy::dotenv().ok();
         let data = std::fs::read_to_string("tests/fixtures/empty_raw_request.json")
             .expect("could not read fixture");
-        assert!(server::receive(data).is_err());
+        assert!(db_api::receive(data).is_err());
     }
 
     // #[ignore]
@@ -28,6 +28,6 @@ mod tests {
         dotenvy::dotenv().ok();
         let data = std::fs::read_to_string("tests/fixtures/wip_request.json")
             .expect("could not read fixture");
-        assert!(server::receive(data).is_ok());
+        assert!(db_api::receive(data).is_ok());
     }
 }
