@@ -26,8 +26,11 @@ fn persist(data_set: DataSet) -> Result<(), Box<dyn std::error::Error>> {
     match database::connect() {
         Ok(mut connection) => {
             let rows = build_insertion_rows(data_set);
-            connection.insert(rows, "");
-            Ok(())
+            match connection.insert(rows, "form") {
+                Ok(()) => Ok(()),
+                Err(_e) => panic!("persist panics insertion didn't go well")
+            }
+            // Ok(())
         },
         Err(e) => {
             let DatabaseError(dbe) = e;
@@ -37,7 +40,7 @@ fn persist(data_set: DataSet) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn build_insertion_rows(_data_set: DataSet) -> Vec<Row> {
-    let v = vec!();
+    let v = vec!(Row {label: String::from("length"), sql_type: String::from("int")});
     // for data_set 
     v
 }
