@@ -16,8 +16,7 @@
     "description": {
       "defaultExecutablePath": "target/debug/db_api.exe",
       "workingDirectory": "",
-      "arguments": [],
-      "port": 8089
+      "arguments": [ "--port", "%FUNCTIONS_CUSTOMHANDLER_PORT%" ]
     },
     "enableForwardingHttpRequest": true
   }
