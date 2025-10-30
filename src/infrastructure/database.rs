@@ -1,22 +1,71 @@
 use crate::util::{self};
 
 use postgres::{Client, NoTls};
-pub struct DatabaseError(pub Box<dyn std::error::Error>);
+
+#[derive(Debug)]
+pub struct DatabaseError {
+    pub kind: DatabaseErrorKind,
+}
+
+impl std::fmt::Display for DatabaseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "error in database layer")
+    }
+}
+
+impl std::error::Error for DatabaseError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match &self.kind {
+            DatabaseErrorKind::NotConnected(e) => Some(e),
+            DatabaseErrorKind::AlreadyExists(e) => Some(e),
+            DatabaseErrorKind::InjectionAttempt => None,
+        }
+    }
+}
+
+#[derive(Debug)]
+#[non_exhaustive]
+enum DatabaseErrorKind {
+    NotConnected(postgres::Error),
+    AlreadyExists(postgres::Error),
+    InjectionAttempt,
+}
+
+impl std::fmt::Display for DatabaseErrorKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotConnected(_e) => f.write_str("connection couldn't be established"),
+            Self::AlreadyExists(_e) => f.write_str("the dataset does already exist"),
+            Self::InjectionAttempt => f.write_str("the dataset does already exist"),
+        }
+    }
+}
+
+impl std::error::Error for DatabaseErrorKind {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            _ => None,
+        }
+    }
+}
+
 pub struct Field {
     pub name: String,
     pub sql_type: String,
 }
+
 pub struct Query {}
+
 pub struct Connection {
     query: String,
-    client: Client,    
+    client: Client,
 }
 
 impl Connection {
     pub fn new(client: Client) -> Self {
         Self {
             query: String::from("query"),
-            client
+            client,
         }
     }
 }
@@ -35,7 +84,9 @@ impl ActiveConnection for Connection {
             for field in fields {
                 println!("name: {}, sql_type: {}", field.name, field.sql_type)
             }
-            Err(DatabaseError(Box::from("SQL-like syntax is not allowed")))
+            Err(DatabaseError {
+                kind: DatabaseErrorKind::InjectionAttempt,
+            })
         } else {
             self.query = format!("INSERT {table_name}");
             let params = String::from("");
@@ -43,11 +94,11 @@ impl ActiveConnection for Connection {
             Ok(())
         }
     }
-    
+
     fn execute(&mut self, _query: Query) {
         todo!()
     }
-    
+
     fn close() {
         todo!()
     }
@@ -63,7 +114,9 @@ pub fn connect() -> Result<Connection, DatabaseError> {
             // }
             // let s = e.kind().to_string();
             // println!("{}");
-            Err(DatabaseError(Box::from(e)))
+            Err(DatabaseError {
+                kind: DatabaseErrorKind::NotConnected(e),
+            })
         } // Err(e) => Err("Something went wrong!".into()),
     }
 }
@@ -135,6 +188,6 @@ mod tests {
 
     #[test]
     fn vec2_test1() {
-        assert_eq!(vec2!("1","2","4").get(2).unwrap(), &String::from("4"));
+        assert_eq!(vec2!("1", "2", "4").get(2).unwrap(), &String::from("4"));
     }
 }

@@ -1,20 +1,47 @@
 use crate::model::{http, mapper};
-use crate::repository;
+use crate::repository::{self, RepositoryError};
 use crate::util;
 
-pub fn handle(payload: http::Payload) -> Result<(), Box<dyn std::error::Error>> {
+#[derive(Debug)]
+pub struct ServiceError {
+    kind: ServiceErrorKind,
+}
+
+impl std::error::Error for ServiceError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match &self.kind {
+            ServiceErrorKind::Inner(e) => Some(e),
+        }
+    }
+}
+
+impl std::fmt::Display for ServiceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "error in service `xxx`")
+    }
+}
+
+#[derive(Debug)]
+pub enum ServiceErrorKind {
+    Inner(RepositoryError),
+}
+
+pub fn handle(payload: http::Payload) -> Result<(), ServiceError> {
     // let model: Option<domain::DataSet> = Some(mapper::to_model::<domain::DataSet>(payload));
     let model = mapper::to_data_set(payload);
-    validate(model.length);
+    let _len = validate(model.length)?;
 
     // repository::persist(model.expect("Model is empty!"))
-    repository::create(model)
+    repository::create(model).map_err(|e| ServiceErrorKind::Inner(e))
+    .map_err(|kind| ServiceError {kind})
 }
 
-fn validate(input: u8) {
-    println!("Validate email, which is {input}");
-    let _len = util::check_len("");
+//TODO this has to make sense
+fn validate(input: u8) -> Result<usize, ServiceError> {
+    println!("Validate len, which is {input}");
+    Ok(util::check_len(""))
 }
+
 #[allow(dead_code)]
 fn email(_data: &str) -> &str {
     "writerolandkurmann@gmail.com"

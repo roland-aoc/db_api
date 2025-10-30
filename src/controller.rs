@@ -1,10 +1,36 @@
-use crate::service;
 use crate::model::http::Payload;
+use crate::service;
 
 use serde_json::{self};
-use warp::{Filter, http::Response};
 use std::collections::HashMap;
 use std::net::Ipv4Addr;
+use warp::{Filter, http::Response};
+
+#[derive(Debug)]
+struct ControllerError {
+    kind: ControllerErrorKind,
+}
+
+impl std::fmt::Display for ControllerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "error in repository `xxx`")
+    }
+}
+
+impl std::error::Error for ControllerError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match &self.kind {
+            ControllerErrorKind::Inner(e) => Some(e),
+            ControllerErrorKind::Validation => None,
+        }
+    }
+}
+
+#[derive(Debug)]
+enum ControllerErrorKind {
+    Inner(serde_json::Error),
+    Validation,
+}
 
 // pub async fn post(request_body: String) -> Result<(), Box<dyn std::error::Error>> {
 pub async fn post() {
@@ -32,12 +58,15 @@ pub async fn post() {
 
     warp::serve(example1).run((Ipv4Addr::LOCALHOST, port)).await;
 }
-    
-fn parse(request_body: &str) -> Result<(), Box<dyn std::error::Error>> {
+
+fn parse(request_body: &str) -> Result<(), ControllerError> {
     let payload: Result<Payload, _> = serde_json::from_str(&request_body);
     // println!("Payload result: {:?}", payload.as_ref());
-    match payload {
-        Ok(p) => service::handle(p),
-        Err(e) => Err(Box::from(e))
-    }
-    }
+
+    //TODO how do return nothing from map() ?
+    let _ = payload
+        .map(|p| service::handle(p))
+        .map_err(|e| ControllerErrorKind::Inner(e))
+        .map_err(|kind| ControllerError { kind });
+    Ok(())
+}
