@@ -1,5 +1,5 @@
-use crate::infrastructure::database::DatabaseError;
 use crate::infrastructure::database::{self, ActiveConnection, Field};
+use crate::infrastructure::database::{Connection, DatabaseError};
 use crate::model::domain::DataSet;
 
 #[derive(Debug)]
@@ -34,7 +34,9 @@ impl std::error::Error for RepositoryError {
 // }
 
 pub fn create(data_set: DataSet) -> Result<(), RepositoryError> {
-    persist(data_set)?;
+    let connection = get_connection()?;
+    let fields = build_insertion_fields(data_set);
+    let _ = persist(&fields, connection);
     Ok(())
     // .map_err(|_| RepositoryErrorKind::Default).map_err(|kind | RepositoryError {kind})
     // Ok(())
@@ -57,19 +59,23 @@ pub fn create(data_set: DataSet) -> Result<(), RepositoryError> {
 // }
 
 // fn persist(data_set: DataSet) -> Result<(), Box<dyn std::error::Error>> {
-fn persist(data_set: DataSet) -> Result<(), RepositoryError> {
+fn get_connection() -> Result<Connection, RepositoryError> {
     // :Result<Connection, Box<dyn std::error::Error>>
 
     match database::connect() {
-        Ok(mut connection) => {
-            let fields = build_insertion_fields(data_set);
-            match connection.insert(fields, "form") {
-                Ok(()) => Ok(()),
-                Err(e) => Err(e)
-                    .map_err(|e| RepositoryErrorKind::Inner(e))
-                    .map_err(|kind| RepositoryError { kind }),
-            }
-        }
+        Ok(connection) => Ok(connection),
+        Err(e) => Err(e)
+            .map_err(|e| RepositoryErrorKind::Inner(e))
+            .map_err(|kind| RepositoryError { kind }),
+    }
+}
+
+fn persist(
+    fields: &Vec<Field>,
+    mut connection: database::Connection,
+) -> Result<(), RepositoryError> {
+    match connection.insert(fields, "form") {
+        Ok(()) => Ok(()),
         Err(e) => Err(e)
             .map_err(|e| RepositoryErrorKind::Inner(e))
             .map_err(|kind| RepositoryError { kind }),
@@ -140,6 +146,8 @@ mod tests {
     fn persist_test1() {
         dotenvy::dotenv().ok();
         let data_set = DataSet { length: 123 };
-        persist(data_set).expect("");
+        let connection = get_connection().unwrap();
+        let fields = build_insertion_fields(data_set);
+        persist(&fields, connection).expect("");
     }
 }
