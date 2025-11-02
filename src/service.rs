@@ -1,4 +1,4 @@
-use crate::model::{http, mapper};
+use crate::model::{domain};
 use crate::repository::{self, RepositoryError};
 use crate::util;
 
@@ -26,18 +26,18 @@ pub enum ServiceErrorKind {
     Inner(RepositoryError),
 }
 
-pub fn handle(payload: http::Payload) -> Result<(), ServiceError> {
+pub fn handle(data_set: domain::DataSet) -> Result<(), ServiceError> {
     // let model: Option<domain::DataSet> = Some(mapper::to_model::<domain::DataSet>(payload));
-    let model = mapper::to_data_set(payload);
-    let _len = validate(model.length)?;
+    // let model = mapper::to_data_set(payload);
+    let _len = validate(data_set.length)?;
 
     // repository::persist(model.expect("Model is empty!"))
-    repository::create(model).map_err(|e| ServiceErrorKind::Inner(e))
+    repository::create(data_set).map_err(|e| ServiceErrorKind::Inner(e))
     .map_err(|kind| ServiceError {kind})
 }
 
 //TODO this has to make sense
-fn validate(input: u8) -> Result<usize, ServiceError> {
+fn validate(input: f32) -> Result<usize, ServiceError> {
     println!("Validate len, which is {input}");
     Ok(util::check_len(""))
 }

@@ -1,6 +1,4 @@
-use crate::{
-    util::{self},
-};
+use crate::util::{self};
 
 use postgres::{Client, NoTls};
 

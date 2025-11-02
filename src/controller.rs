@@ -1,5 +1,4 @@
-use crate::model::http::Payload;
-use crate::service;
+use crate::{model::domain::DataSet, service};
 
 use serde_json::{self};
 use std::collections::HashMap;
@@ -60,7 +59,7 @@ pub async fn post() {
 }
 
 fn parse(request_body: &str) -> Result<(), ControllerError> {
-    let payload: Result<Payload, _> = serde_json::from_str(&request_body);
+    let payload: Result<DataSet, _> = serde_json::from_str(&request_body);
     // println!("Payload result: {:?}", payload.as_ref());
 
     //TODO how do return nothing from map() ?
