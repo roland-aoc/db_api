@@ -1,10 +1,14 @@
-use crate::util::{self};
+use crate::{
+    util::{self},
+};
 
 use postgres::{Client, NoTls};
 
+pub mod migration;
+
 #[derive(Debug)]
 pub struct DatabaseError {
-    pub kind: DatabaseErrorKind,
+    kind: DatabaseErrorKind,
 }
 
 impl std::fmt::Display for DatabaseError {
@@ -19,16 +23,19 @@ impl std::error::Error for DatabaseError {
             DatabaseErrorKind::NotConnected(e) => Some(e),
             DatabaseErrorKind::AlreadyExists(e) => Some(e),
             DatabaseErrorKind::InjectionAttempt => None,
+            DatabaseErrorKind::TableDoesNotExist(e) => Some(e),
         }
     }
 }
 
 #[derive(Debug)]
 #[non_exhaustive]
+#[allow(dead_code)]
 enum DatabaseErrorKind {
     NotConnected(postgres::Error),
     AlreadyExists(postgres::Error),
     InjectionAttempt,
+    TableDoesNotExist(postgres::Error),
 }
 
 impl std::fmt::Display for DatabaseErrorKind {
@@ -36,7 +43,8 @@ impl std::fmt::Display for DatabaseErrorKind {
         match self {
             Self::NotConnected(_e) => f.write_str("connection couldn't be established"),
             Self::AlreadyExists(_e) => f.write_str("the dataset does already exist"),
-            Self::InjectionAttempt => f.write_str("the dataset does already exist"),
+            Self::InjectionAttempt => f.write_str("this might be a sql injection"),
+            Self::TableDoesNotExist(_e) => f.write_str("the table already exists"),
         }
     }
 }
@@ -72,6 +80,7 @@ impl Connection {
 
 pub trait ActiveConnection {
     fn insert(&mut self, fields: &Vec<Field>, table_name: &str) -> Result<(), DatabaseError>;
+    fn get_schema(&mut self, table_name: &str) -> Result<Vec<Field>, DatabaseError>;
     #[allow(dead_code)]
     fn execute(&mut self, query: Query);
     #[allow(dead_code)]
@@ -93,6 +102,23 @@ impl ActiveConnection for Connection {
             let _ = self.client.query(&self.query, &[&params]);
             Ok(())
         }
+    }
+
+    fn get_schema(&mut self, table_name: &str) -> Result<Vec<Field>, DatabaseError> {
+        let query = "select * 
+        from information_schema.columns 
+        where table_name = $1 and table_schema = 'public'";
+        let result = self
+            .client
+            .query(query, &[&table_name])
+            .map_err(|e| DatabaseErrorKind::TableDoesNotExist(e))
+            .map_err(|kind| DatabaseError { kind });
+        for i in result.unwrap() {
+            println!("gets here");
+            let s: &str = i.get(3);
+            println!("{}", s);
+        }
+        Ok(vec![])
     }
 
     fn execute(&mut self, _query: Query) {
@@ -167,27 +193,4 @@ fn iter_row(query_result: Vec<postgres::Row>) -> Result<(), postgres::Error> {
         let balance: f64 = row.try_get("balance")?;
         println!("Account {}: {}", id, balance);
     })
-}
-
-#[macro_export]
-macro_rules! vec2 {
-    ( $( $x:expr ),* ) => {
-        {
-            let mut temp_vec = Vec::new();
-            $(
-                temp_vec.push($x);
-            )*
-            temp_vec
-        }
-    };
-}
-
-#[cfg(test)]
-mod tests {
-    // use super::*;
-
-    #[test]
-    fn vec2_test1() {
-        assert_eq!(vec2!("1", "2", "4").get(2).unwrap(), &String::from("4"));
-    }
 }

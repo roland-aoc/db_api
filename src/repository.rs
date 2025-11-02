@@ -1,3 +1,4 @@
+use crate::infrastructure::database::migration::{self};
 use crate::infrastructure::database::{self, ActiveConnection, Field};
 use crate::infrastructure::database::{Connection, DatabaseError};
 use crate::model::domain::DataSet;
@@ -34,7 +35,11 @@ impl std::error::Error for RepositoryError {
 // }
 
 pub fn create(data_set: DataSet) -> Result<(), RepositoryError> {
-    let connection = get_connection()?;
+    let mut connection = get_connection()?;
+
+    let _ = migration::schema_is_updated(&mut connection, &data_set);
+    migration::execute(&data_set);
+
     let fields = build_insertion_fields(data_set);
     let _ = persist(&fields, connection);
     Ok(())
@@ -59,7 +64,7 @@ pub fn create(data_set: DataSet) -> Result<(), RepositoryError> {
 // }
 
 // fn persist(data_set: DataSet) -> Result<(), Box<dyn std::error::Error>> {
-fn get_connection() -> Result<Connection, RepositoryError> {
+pub fn get_connection() -> Result<Connection, RepositoryError> {
     // :Result<Connection, Box<dyn std::error::Error>>
 
     match database::connect() {
