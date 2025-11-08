@@ -1,6 +1,7 @@
 use crate::util::{self};
 
-use postgres::{Client, NoTls};
+use postgres::{Client, NoTls, types::to_sql_checked};
+use std::collections::HashMap;
 
 pub mod migration;
 
@@ -22,6 +23,7 @@ impl std::error::Error for DatabaseError {
             DatabaseErrorKind::AlreadyExists(e) => Some(e),
             DatabaseErrorKind::InjectionAttempt => None,
             DatabaseErrorKind::TableDoesNotExist(e) => Some(e),
+            DatabaseErrorKind::UnknownType(e) => Some(e),
         }
     }
 }
@@ -34,6 +36,7 @@ enum DatabaseErrorKind {
     AlreadyExists(postgres::Error),
     InjectionAttempt,
     TableDoesNotExist(postgres::Error),
+    UnknownType(postgres::Error),
 }
 
 impl std::fmt::Display for DatabaseErrorKind {
@@ -43,6 +46,9 @@ impl std::fmt::Display for DatabaseErrorKind {
             Self::AlreadyExists(_e) => f.write_str("the dataset does already exist"),
             Self::InjectionAttempt => f.write_str("this might be a sql injection"),
             Self::TableDoesNotExist(_e) => f.write_str("the table already exists"),
+            Self::UnknownType(_e) => {
+                f.write_str("the data type is not known to this application, implement it")
+            }
         }
     }
 }
@@ -58,6 +64,12 @@ impl std::error::Error for DatabaseErrorKind {
 pub struct Field {
     pub name: String,
     pub sql_type: String,
+}
+
+impl Field {
+    fn new(name: String, sql_type: String) -> Self {
+        Self { name, sql_type }
+    }
 }
 
 pub struct Query {}
@@ -78,7 +90,10 @@ impl Connection {
 
 pub trait ActiveConnection {
     fn insert(&mut self, fields: &Vec<Field>, table_name: &str) -> Result<(), DatabaseError>;
-    fn get_schema(&mut self, table_name: &str) -> Result<Vec<Field>, DatabaseError>;
+    fn get_schema(
+        &mut self,
+        table_name: &str,
+    ) -> Result<HashMap<String, serde_json::Value>, DatabaseError>;
     #[allow(dead_code)]
     fn execute(&mut self, query: Query);
     #[allow(dead_code)]
@@ -102,7 +117,10 @@ impl ActiveConnection for Connection {
         }
     }
 
-    fn get_schema(&mut self, table_name: &str) -> Result<Vec<Field>, DatabaseError> {
+    fn get_schema(
+        &mut self,
+        table_name: &str,
+    ) -> Result<HashMap<String, serde_json::Value>, DatabaseError> {
         let query = "select * 
         from information_schema.columns 
         where table_name = $1 and table_schema = 'public'";
@@ -111,12 +129,20 @@ impl ActiveConnection for Connection {
             .query(query, &[&table_name])
             .map_err(|e| DatabaseErrorKind::TableDoesNotExist(e))
             .map_err(|kind| DatabaseError { kind });
+        let mut schema: HashMap<String, serde_json::Value> = HashMap::new();
         for i in result.unwrap() {
-            println!("gets here");
-            let s: &str = i.get(3);
-            println!("{}", s);
+            schema.insert(
+                i.try_get("column_name")
+                    .map_err(|e| DatabaseErrorKind::UnknownType(e))
+                    .map_err(|kind| DatabaseError { kind })?,
+                parse_field(
+                    i.try_get("data_type")
+                        .map_err(|e| DatabaseErrorKind::UnknownType(e))
+                        .map_err(|kind| DatabaseError { kind })?,
+                ),
+            );
         }
-        Ok(vec![])
+        Ok(schema)
     }
 
     fn execute(&mut self, _query: Query) {
@@ -126,6 +152,10 @@ impl ActiveConnection for Connection {
     fn close() {
         todo!()
     }
+}
+
+fn parse_field(ty: &str) -> serde_json::Value {
+    todo!()
 }
 
 pub fn connect() -> Result<Connection, DatabaseError> {
