@@ -1,4 +1,5 @@
 use chrono::NaiveDate;
+use migration_macro::Migrate;
 use std::fmt::Display;
 
 #[derive(serde::Deserialize, Debug)]
@@ -26,6 +27,7 @@ pub struct Picture {
     pub description: String,
 }
 
+// #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, Migrate)]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DataSet {
     pub submit_source: String,
