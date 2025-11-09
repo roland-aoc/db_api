@@ -1,7 +1,9 @@
-use crate::infrastructure::database::migration::{self};
-use crate::infrastructure::database::{self, ActiveConnection, Field};
-use crate::infrastructure::database::{Connection, DatabaseError};
-use crate::model::domain::DataSet;
+use std::collections::HashMap;
+
+use migration::{self};
+use database::{self, ActiveConnection, Field};
+use database::{Connection, DatabaseError};
+use crate::model::entity::DataSet;
 
 #[derive(Debug)]
 pub struct RepositoryError {
@@ -37,8 +39,13 @@ impl std::error::Error for RepositoryError {
 pub fn create(data_set: DataSet) -> Result<(), RepositoryError> {
     let mut connection = get_connection()?;
 
-    let _ = migration::schema_is_updated(&mut connection, &data_set);
-    migration::execute(&data_set);
+    // let _ = migration::schema_is_updated(&mut connection, &data_set);
+    // migration::execute(&data_set);
+    
+    //TODO model has to be mapped here
+    let data_set_map = HashMap::new();
+    let _ = migration::schema_is_updated(&mut connection, &data_set_map);
+    migration::execute(&data_set_map);
 
     let fields = build_insertion_fields(data_set);
     let _ = persist(&fields, connection);
@@ -158,7 +165,7 @@ mod tests {
             event_observer: String::from(""),
 
             author_email_address: String::from(""),
-            hull_material: crate::model::domain::Rumpfmaterial::STAHL.to_string(), 
+            hull_material: crate::model::entity::Rumpfmaterial::STAHL.to_string(), 
             rig_type: String::from(""), 
             length: 0.0,
             width: 0.0,

@@ -26,7 +26,7 @@ pub struct Picture {
     pub description: String,
 }
 
-use crate::infrastructure::database::migration::Migrate;
+use migration::Migrate;
 //this only work at module level, not if struct is defined inside a method
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, migration_macro::Migrate)]
 pub struct DataSet {

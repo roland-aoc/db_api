@@ -1,4 +1,4 @@
-use crate::model::{domain};
+use crate::model::{entity};
 use crate::repository::{self, RepositoryError};
 use crate::util;
 
@@ -26,7 +26,7 @@ pub enum ServiceErrorKind {
     Inner(RepositoryError),
 }
 
-pub fn handle(data_set: domain::DataSet) -> Result<(), ServiceError> {
+pub fn handle(data_set: entity::DataSet) -> Result<(), ServiceError> {
     // let model: Option<domain::DataSet> = Some(mapper::to_model::<domain::DataSet>(payload));
     // let model = mapper::to_data_set(payload);
     let _len = validate(data_set.length)?;

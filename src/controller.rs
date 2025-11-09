@@ -1,4 +1,4 @@
-use crate::{model::domain::DataSet, service};
+use crate::{model::entity::DataSet, service};
 
 use serde_json::{self};
 use std::collections::HashMap;

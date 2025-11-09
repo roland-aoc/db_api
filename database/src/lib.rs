@@ -1,9 +1,7 @@
-use crate::util::{self};
+pub mod util;
 
 use postgres::{Client, NoTls};
 use std::collections::HashMap;
-
-pub mod migration;
 
 #[derive(Debug)]
 pub struct DatabaseError {
@@ -24,6 +22,7 @@ impl std::error::Error for DatabaseError {
             DatabaseErrorKind::InjectionAttempt => None,
             DatabaseErrorKind::TableDoesNotExist(e) => Some(e),
             DatabaseErrorKind::UnknownType(e) => Some(e),
+            DatabaseErrorKind::UnknownInputType => None,
         }
     }
 }
@@ -37,6 +36,7 @@ enum DatabaseErrorKind {
     InjectionAttempt,
     TableDoesNotExist(postgres::Error),
     UnknownType(postgres::Error),
+    UnknownInputType,
 }
 
 impl std::fmt::Display for DatabaseErrorKind {
@@ -49,6 +49,7 @@ impl std::fmt::Display for DatabaseErrorKind {
             Self::UnknownType(_e) => {
                 f.write_str("the data type is not known to this application, implement it")
             }
+            Self::UnknownInputType => f.write_str("the requested type is unknown to this application"),
         }
     }
 }
@@ -91,10 +92,10 @@ impl Connection {
 
 pub trait ActiveConnection {
     fn insert(&mut self, fields: &Vec<Field>, table_name: &str) -> Result<(), DatabaseError>;
-    fn get_schema(
+    fn query_schema(
         &mut self,
         table_name: &str,
-    ) -> Result<HashMap<String, serde_json::Value>, DatabaseError>;
+    ) -> Result<HashMap<String, String>, DatabaseError>;
     #[allow(dead_code)]
     fn execute(&mut self, query: Query);
     #[allow(dead_code)]
@@ -118,10 +119,10 @@ impl ActiveConnection for Connection {
         }
     }
 
-    fn get_schema(
+    fn query_schema(
         &mut self,
         table_name: &str,
-    ) -> Result<HashMap<String, serde_json::Value>, DatabaseError> {
+    ) -> Result<HashMap<String, String>, DatabaseError> {
         let query = "select * 
         from information_schema.columns 
         where table_name = $1 and table_schema = 'public'";
@@ -130,7 +131,7 @@ impl ActiveConnection for Connection {
             .query(query, &[&table_name])
             .map_err(|e| DatabaseErrorKind::TableDoesNotExist(e))
             .map_err(|kind| DatabaseError { kind });
-        let mut schema: HashMap<String, serde_json::Value> = HashMap::new();
+        let mut schema: HashMap<String, String> = HashMap::new();
         for i in result.unwrap() {
             schema.insert(
                 i.try_get("column_name")
@@ -155,7 +156,7 @@ impl ActiveConnection for Connection {
     }
 }
 
-fn parse_field(_ty: &str) -> serde_json::Value {
+fn parse_field(_ty: &str) -> String {
     todo!()
 }
 
