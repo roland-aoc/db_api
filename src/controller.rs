@@ -20,7 +20,7 @@ impl std::error::Error for ControllerError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match &self.kind {
             ControllerErrorKind::Inner(e) => Some(e),
-            ControllerErrorKind::Validation => None,
+            ControllerErrorKind::_Validation => None,
         }
     }
 }
@@ -28,7 +28,7 @@ impl std::error::Error for ControllerError {
 #[derive(Debug)]
 enum ControllerErrorKind {
     Inner(serde_json::Error),
-    Validation,
+    _Validation,
 }
 
 // pub async fn post(request_body: String) -> Result<(), Box<dyn std::error::Error>> {

@@ -1,5 +1,4 @@
 use chrono::NaiveDate;
-use migration_macro::Migrate;
 use std::fmt::Display;
 
 #[derive(serde::Deserialize, Debug)]
@@ -27,8 +26,9 @@ pub struct Picture {
     pub description: String,
 }
 
-// #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, Migrate)]
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+use crate::infrastructure::database::migration::Migrate;
+//this only work at module level, not if struct is defined inside a method
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, migration_macro::Migrate)]
 pub struct DataSet {
     pub submit_source: String,
     #[serde(with = "date_format")]

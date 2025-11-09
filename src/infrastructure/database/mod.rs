@@ -1,6 +1,6 @@
 use crate::util::{self};
 
-use postgres::{Client, NoTls, types::to_sql_checked};
+use postgres::{Client, NoTls};
 use std::collections::HashMap;
 
 pub mod migration;
@@ -67,6 +67,7 @@ pub struct Field {
 }
 
 impl Field {
+    #[allow(dead_code)]
     fn new(name: String, sql_type: String) -> Self {
         Self { name, sql_type }
     }
@@ -154,7 +155,7 @@ impl ActiveConnection for Connection {
     }
 }
 
-fn parse_field(ty: &str) -> serde_json::Value {
+fn parse_field(_ty: &str) -> serde_json::Value {
     todo!()
 }
 

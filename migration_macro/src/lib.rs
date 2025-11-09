@@ -1,5 +1,3 @@
-use std::fmt::Debug;
-
 use proc_macro::TokenStream;
 
 #[proc_macro_derive(Migrate)]
@@ -21,7 +19,7 @@ fn impl_migrate_macro(ast: &syn::DeriveInput) -> TokenStream {
     println!("Hello, Macro! My name is {}!", name);
      match &ast.data {
         syn::Data::Struct(d) => for field in &d.fields {
-            print!("{:?}", field)
+            println!("{:?}", field)
         },
         syn::Data::Enum(_) => panic!("not covered"),
         syn::Data::Union(_) => panic!("not covered")
