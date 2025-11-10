@@ -1,6 +1,44 @@
 use crate::DatabaseError;
 use crate::DatabaseErrorKind;
 
+pub struct Conf {
+    pub database_user: String,
+    pub database_password: String,
+    pub database_host: String,
+    pub database_name: String,
+}
+
+impl Conf {
+    pub fn new() -> Self {
+        Conf {
+            database_user: String::new(),
+            database_password: String::new(),
+            database_host: String::new(),
+            database_name: String::new(),
+        }
+    }
+}
+
+pub fn get_conf() -> Result<Conf, DatabaseError> {
+    let file = std::fs::read_to_string("database/conf-secrets.txt")
+        .map_err(|e| DatabaseErrorKind::ConfigUnavailable(e))
+        .map_err(|kind| DatabaseError { kind })?;
+    let mut conf = Conf::new();
+    for line in file.lines() {
+        let (k, v) = line.split_once('=').unwrap();
+        if k == "DATABASE_USER" {
+            conf.database_user = v.to_string();
+        } else if k == "DATABASE_PASSWORD" {
+            conf.database_password = v.to_string();
+        } else if k == "DATABASE_HOST" {
+            conf.database_host = v.to_string();
+        } else if k == "DATABASE_NAME" {
+            conf.database_name = v.to_string();
+        }
+    }
+    Ok(conf)
+}
+
 #[allow(dead_code)]
 pub fn not_null(data: Option<&str>) -> Option<&str> {
     match data {
@@ -16,16 +54,19 @@ pub fn is_sql(data: &str) -> bool {
 }
 
 pub fn parse_sql_field(sql_field: &str) -> Result<String, DatabaseError> {
+    //TODO impl more types
     if sql_field.to_lowercase().starts_with("varchar") {
         Ok(String::from("String"))
     } else if sql_field.to_lowercase().starts_with("int") {
         Ok(String::from("u32"))
-    } else if sql_field.to_lowercase().starts_with("boolean") {
-        Ok(String::from("bool"))
     } else if sql_field.to_lowercase().starts_with("float") {
         Ok(String::from("f32"))
+    } else if sql_field.to_lowercase().starts_with("boolean") {
+        Ok(String::from("bool"))
     } else {
-        Err(DatabaseError { kind: DatabaseErrorKind::UnknownInputType, })
+        Err(DatabaseError {
+            kind: DatabaseErrorKind::UnknownInputType,
+        })
     }
 }
 

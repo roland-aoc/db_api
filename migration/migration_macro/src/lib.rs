@@ -13,12 +13,11 @@ pub fn migrate_macro_derive(input: TokenStream) -> TokenStream {
 
 fn impl_migrate_macro(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
-    // let generated = quote::quote! {
-    println!("Hello, Macro! My name is {}!", name);
+    println!("Struct name is {}", name);
     match &ast.data {
         syn::Data::Struct(d) => {
             for field in &d.fields {
-                println!("{:?}", field)
+                println!("{:?}", field.ident);
             }
             let res = get_connection();
             match res {
@@ -42,7 +41,7 @@ fn impl_migrate_macro(ast: &syn::DeriveInput) -> TokenStream {
 }
 
 fn get_schema(mut cnxn: database::Connection) -> Result<HashMap<String, String>, MigrationError> {
-    let mut hash_map: HashMap<String, String> = cnxn.query_schema("account")
+    let hash_map: HashMap<String, String> = cnxn.query_schema("account")
         .map_err(|e| MigrationErrorKind::Inner(e))
         .map_err(|kind| MigrationError { kind })?;
     Ok(hash_map)
@@ -81,6 +80,7 @@ struct MigrationError {
 #[derive(Debug)]
 #[non_exhaustive]
 enum MigrationErrorKind {
+    #[allow(dead_code)]
     Inner(database::DatabaseError),
 }
 

@@ -3,6 +3,8 @@ pub mod util;
 use postgres::{Client, NoTls};
 use std::collections::HashMap;
 
+use crate::util::Conf;
+
 #[derive(Debug)]
 pub struct DatabaseError {
     kind: DatabaseErrorKind,
@@ -23,6 +25,7 @@ impl std::error::Error for DatabaseError {
             DatabaseErrorKind::TableDoesNotExist(e) => Some(e),
             DatabaseErrorKind::UnknownType(e) => Some(e),
             DatabaseErrorKind::UnknownInputType => None,
+            DatabaseErrorKind::ConfigUnavailable(e) => Some(e),
         }
     }
 }
@@ -37,6 +40,7 @@ enum DatabaseErrorKind {
     TableDoesNotExist(postgres::Error),
     UnknownType(postgres::Error),
     UnknownInputType,
+    ConfigUnavailable(std::io::Error),
 }
 
 impl std::fmt::Display for DatabaseErrorKind {
@@ -49,7 +53,10 @@ impl std::fmt::Display for DatabaseErrorKind {
             Self::UnknownType(_e) => {
                 f.write_str("the data type is not known to this application, implement it")
             }
-            Self::UnknownInputType => f.write_str("the requested type is unknown to this application"),
+            Self::UnknownInputType => {
+                f.write_str("the requested type is unknown to this application")
+            }
+            Self::ConfigUnavailable(_e) => f.write_str("the config fil cannot be read"),
         }
     }
 }
@@ -92,10 +99,7 @@ impl Connection {
 
 pub trait ActiveConnection {
     fn insert(&mut self, fields: &Vec<Field>, table_name: &str) -> Result<(), DatabaseError>;
-    fn query_schema(
-        &mut self,
-        table_name: &str,
-    ) -> Result<HashMap<String, String>, DatabaseError>;
+    fn query_schema(&mut self, table_name: &str) -> Result<HashMap<String, String>, DatabaseError>;
     #[allow(dead_code)]
     fn execute(&mut self, query: Query);
     #[allow(dead_code)]
@@ -119,10 +123,7 @@ impl ActiveConnection for Connection {
         }
     }
 
-    fn query_schema(
-        &mut self,
-        table_name: &str,
-    ) -> Result<HashMap<String, String>, DatabaseError> {
+    fn query_schema(&mut self, table_name: &str) -> Result<HashMap<String, String>, DatabaseError> {
         let query = "select * 
         from information_schema.columns 
         where table_name = $1 and table_schema = 'public'";
@@ -137,11 +138,11 @@ impl ActiveConnection for Connection {
                 i.try_get("column_name")
                     .map_err(|e| DatabaseErrorKind::UnknownType(e))
                     .map_err(|kind| DatabaseError { kind })?,
-                parse_field(
+                util::parse_sql_field(
                     i.try_get("data_type")
                         .map_err(|e| DatabaseErrorKind::UnknownType(e))
                         .map_err(|kind| DatabaseError { kind })?,
-                ),
+                )?,
             );
         }
         Ok(schema)
@@ -149,20 +150,18 @@ impl ActiveConnection for Connection {
 
     fn execute(&mut self, _query: Query) {
         todo!()
+        //"not yet implemented"
     }
 
     fn close() {
         todo!()
+        //"not yet implemented"
     }
-}
-
-fn parse_field(_ty: &str) -> String {
-    todo!()
 }
 
 pub fn connect() -> Result<Connection, DatabaseError> {
     // pub fn new() -> Result<Connection, DatabaseException> {
-    match postgres_client() {
+    match postgres_client(util::get_conf()?) {
         Ok(client) => Ok(Connection::new(client)),
         Err(e) => {
             // match e.into_source() {
@@ -177,14 +176,19 @@ pub fn connect() -> Result<Connection, DatabaseError> {
     }
 }
 
-fn postgres_client() -> Result<Client, postgres::Error> {
+fn postgres_client(conf: Conf) -> Result<Client, postgres::Error> {
     // fn post_gres_client() -> Result<Client, DatabaseException> {
     // fn persist(data_set: DataSet) -> Result<(), Error> {
     let _prot = "postgres";
-    let user = std::env::var("DATABASE_USER").expect("DATABASE_USER must be set");
-    let pw = std::env::var("DATABASE_PASSWORD").expect("DATABASE_PASSWORD must be set");
-    let host = "localhost";
-    let db = "postgres";
+    // let user = std::env::var("DATABASE_USER").expect("DATABASE_USER must be set");
+    // let pw = std::env::var("DATABASE_PASSWORD").expect("DATABASE_PASSWORD must be set");
+    // let host = "localhost";
+    // let db = "postgres";
+    let user = conf.database_user;
+    let pw = conf.database_password;
+    let host = conf.database_host;
+    let db = conf.database_name;
+
     let _schema = "bc";
     let connection_str =
         // format!("host={host} user={user} password={pw} dbname={db} schema={schema}");
