@@ -16,13 +16,30 @@ fn impl_migrate_macro(ast: &syn::DeriveInput) -> TokenStream {
     println!("Struct name is {}", name);
     match &ast.data {
         syn::Data::Struct(d) => {
-            for field in &d.fields {
-                println!("{:?}", field.ident);
-            }
             let res = get_connection();
             match res {
                 Ok(cnxn) => {
-                    let _schema = get_schema(cnxn);
+                    let schema: Result<HashMap<String, String>, MigrationError> = get_schema(cnxn);
+                    let schema = match schema {
+                        Ok(v) => v,
+                        Err(e) => {println!("{:?}", e); return TokenStream::new()}
+                    };
+                    let structure = &d
+                        .fields
+                        .clone()
+                        .into_iter()
+                        .map(|f| {
+                            let ident = f
+                                .ident
+                                .as_ref()
+                                .expect("ident string couldn't be generated")
+                                .to_string();
+                            let ty = &f.ty;
+                            let ty_str = quote::quote!(#ty).to_string();
+                            (ident, ty_str)
+                        })
+                        .collect();
+                    compare_states(&schema, &structure);
                 }
                 Err(e) => panic!("{:?}", e.kind),
             }
@@ -40,8 +57,29 @@ fn impl_migrate_macro(ast: &syn::DeriveInput) -> TokenStream {
     generated.into()
 }
 
+fn compare_states<'a>(
+    schema: &'a HashMap<String, String>,
+    structure: &'a HashMap<String, String>,
+) -> HashMap<&'a str, &'a str> {
+    let mut diff: HashMap<&str, &str> = HashMap::new();
+    //check if structure's ks are already in schema
+    for (k, v) in structure.iter() {
+        if let None = schema.get(k) {
+            diff.insert(&k, &v);
+        }
+    }
+    println!("Current HashMap: {:?}", diff);
+    //delete current fields
+    // let mut diff: HashMap<String, String> = structure.iter()
+    // .filter(|(&k, _)| schema.get(&k).is_none())
+    // .collect();
+    // }
+    diff
+}
+
 fn get_schema(mut cnxn: database::Connection) -> Result<HashMap<String, String>, MigrationError> {
-    let hash_map: HashMap<String, String> = cnxn.query_schema("account")
+    let hash_map: HashMap<String, String> = cnxn
+        .query_schema("account")
         .map_err(|e| MigrationErrorKind::Inner(e))
         .map_err(|kind| MigrationError { kind })?;
     Ok(hash_map)
@@ -61,7 +99,7 @@ fn get_schema(mut cnxn: database::Connection) -> Result<HashMap<String, String>,
     //     Err(e) => Err(MigrationError {
     //         kind: MigrationErrorKind::Inner(e),
     //     }),
-    }
+}
 
 // .map(|fields|
 //     fields

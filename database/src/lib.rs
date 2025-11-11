@@ -116,7 +116,8 @@ impl ActiveConnection for Connection {
                 kind: DatabaseErrorKind::InjectionAttempt,
             })
         } else {
-            self.query = format!("INSERT {table_name}");
+            //TODO finish insert statement
+            self.query = format!("INSERT INTO {table_name} VALUES (");
             let params = String::from("");
             let _ = self.client.query(&self.query, &[&params]);
             Ok(())

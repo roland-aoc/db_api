@@ -53,20 +53,6 @@ fn _compare_states(
     todo!()
 }
 
-pub fn schema_is_updated(
-    connection: &mut Connection,
-    _data_set: &HashMap<String, String>,
-) -> Result<bool, DatabaseError> {
-    for _field in connection.query_schema("account")? {
-        // Ok(false)
-    }
-    Ok(true)
-}
-
-//TODO this should be in the repo
-// pub fn execute(_data_set: &DataSet) {}
-pub fn execute(_data_set: &HashMap<String, String>) {}
-
 #[allow(dead_code)]
 pub trait Migrate {
     fn migrate(&self);

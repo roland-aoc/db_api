@@ -55,13 +55,17 @@ pub fn is_sql(data: &str) -> bool {
 
 pub fn parse_sql_field(sql_field: &str) -> Result<String, DatabaseError> {
     //TODO impl more types
-    if sql_field.to_lowercase().starts_with("varchar") {
+    let ty = sql_field.to_lowercase();
+    println!("{ty}");
+    if ty.starts_with("character varying") {
         Ok(String::from("String"))
-    } else if sql_field.to_lowercase().starts_with("int") {
-        Ok(String::from("u32"))
-    } else if sql_field.to_lowercase().starts_with("float") {
+    } else if ty.starts_with("int") {
+        Ok(String::from("i32"))
+    } else if ty.starts_with("bigint") {
+        Ok(String::from("u64"))
+    } else if ty.starts_with("double precision") {
         Ok(String::from("f32"))
-    } else if sql_field.to_lowercase().starts_with("boolean") {
+    } else if ty.starts_with("boolean") {
         Ok(String::from("bool"))
     } else {
         Err(DatabaseError {
