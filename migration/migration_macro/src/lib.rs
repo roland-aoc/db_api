@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use std::collections::HashMap;
 
-use database::{self, ActiveConnection};
+use database::{self, ActiveConnection, DdlType};
 
 #[proc_macro_derive(Migrate)]
 // #[proc_macro]
@@ -13,34 +13,38 @@ pub fn migrate_macro_derive(input: TokenStream) -> TokenStream {
 
 fn impl_migrate_macro(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
-    println!("Struct name is {}", name);
     match &ast.data {
         syn::Data::Struct(d) => {
             let res = get_connection();
             match res {
-                Ok(cnxn) => {
-                    let schema: Result<HashMap<String, String>, MigrationError> = get_schema(cnxn);
-                    let schema = match schema {
+                Ok(mut cnxn) => {
+                    let schema_res: Result<HashMap<String, String>, MigrationError> = get_schema(&mut cnxn);
+                    let schema = match schema_res {
                         Ok(v) => v,
                         Err(e) => {println!("{:?}", e); return TokenStream::new()}
                     };
-                    let structure = &d
+                    //apparently constructor struggles with type hints of complex generics 
+                    let structure: &HashMap<syn::Ident, syn::Type> = &d
                         .fields
                         .clone()
                         .into_iter()
                         .map(|f| {
-                            let ident = f
-                                .ident
-                                .as_ref()
-                                .expect("ident string couldn't be generated")
-                                .to_string();
-                            let ty = &f.ty;
-                            let ty_str = quote::quote!(#ty).to_string();
-                            (ident, ty_str)
+                            // let ident = f
+                            //     .ident
+                            //     .as_ref()
+                            //     .expect("ident string is None")
+                            //     .to_string();
+                            // let ty = &f.ty;
+                            // let ty_str = quote::quote!(#ty).to_string();
+                            // (ident, ty_str)
+                            (f.ident.unwrap(), f.ty)
                         })
                         .collect();
-                    compare_states(&schema, &structure);
-                }
+                    let changes_as_rust_types = compare_states(&schema, &structure);
+                    //TODO what if there are more than 0 indexed fields?
+                    cnxn.execute_ddl(
+                        database::Ddl::new(DdlType::Create, &name.to_string(), &changes_as_rust_types))
+                },
                 Err(e) => panic!("{:?}", e.kind),
             }
         }
@@ -59,25 +63,26 @@ fn impl_migrate_macro(ast: &syn::DeriveInput) -> TokenStream {
 
 fn compare_states<'a>(
     schema: &'a HashMap<String, String>,
-    structure: &'a HashMap<String, String>,
-) -> HashMap<&'a str, &'a str> {
-    let mut diff: HashMap<&str, &str> = HashMap::new();
+    structure: &'a HashMap<syn::Ident, syn::Type>,
+) -> HashMap<&'a syn::Ident, &'a syn::Type> {
+    let mut changes: HashMap<&'a syn::Ident, &'a syn::Type> = HashMap::new();
     //check if structure's ks are already in schema
     for (k, v) in structure.iter() {
-        if let None = schema.get(k) {
-            diff.insert(&k, &v);
+        if let None = schema.get(&k.to_string()) {
+            changes.insert(k, v);
         }
     }
-    println!("Current HashMap: {:?}", diff);
+    // println!("Current HashMap: {:?}", changes);
     //delete current fields
+
     // let mut diff: HashMap<String, String> = structure.iter()
     // .filter(|(&k, _)| schema.get(&k).is_none())
     // .collect();
     // }
-    diff
+    changes
 }
 
-fn get_schema(mut cnxn: database::Connection) -> Result<HashMap<String, String>, MigrationError> {
+fn get_schema(cnxn: &mut database::Connection) -> Result<HashMap<String, String>, MigrationError> {
     let hash_map: HashMap<String, String> = cnxn
         .query_schema("account")
         .map_err(|e| MigrationErrorKind::Inner(e))

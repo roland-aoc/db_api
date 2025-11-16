@@ -67,10 +67,10 @@ pub struct DataSet {
     pub antifouling_system: String,
     pub sail_configuration: String,
     pub standing_rigging_age: u32,
+
     pub file_upload: Vec<String>,
-
     pub pictures: Vec<Picture>,
-
+    
     pub time_to_submit: String,
     pub preview: String,
     pub validated_new_required_field_ids: String,

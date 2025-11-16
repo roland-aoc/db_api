@@ -1,6 +1,3 @@
-use std::collections::HashMap;
-
-use migration::{self};
 use database::{self, ActiveConnection, Field};
 use database::{Connection, DatabaseError};
 use crate::model::entity::DataSet;

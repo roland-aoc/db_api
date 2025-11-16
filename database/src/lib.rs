@@ -2,6 +2,7 @@ pub mod util;
 
 use postgres::{Client, NoTls};
 use std::collections::HashMap;
+use syn;
 
 use crate::util::Conf;
 
@@ -19,13 +20,14 @@ impl std::fmt::Display for DatabaseError {
 impl std::error::Error for DatabaseError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match &self.kind {
-            DatabaseErrorKind::NotConnected(e) => Some(e),
-            DatabaseErrorKind::AlreadyExists(e) => Some(e),
-            DatabaseErrorKind::InjectionAttempt => None,
-            DatabaseErrorKind::TableDoesNotExist(e) => Some(e),
-            DatabaseErrorKind::UnknownType(e) => Some(e),
-            DatabaseErrorKind::UnknownInputType => None,
-            DatabaseErrorKind::ConfigUnavailable(e) => Some(e),
+            NotConnected(e) => Some(e),
+            AlreadyExists(e) => Some(e),
+            InjectionAttempt => None,
+            TableDoesNotExist(e) => Some(e),
+            UnknownType(e) => Some(e),
+            UnknownInputType(_ty_str) => None,
+            ConfigUnavailable(e) => Some(e),
+            InvalidQuery(e) => Some(e),
         }
     }
 }
@@ -39,9 +41,11 @@ enum DatabaseErrorKind {
     InjectionAttempt,
     TableDoesNotExist(postgres::Error),
     UnknownType(postgres::Error),
-    UnknownInputType,
+    UnknownInputType(String),
     ConfigUnavailable(std::io::Error),
+    InvalidQuery(postgres::Error),
 }
+use DatabaseErrorKind::*;
 
 impl std::fmt::Display for DatabaseErrorKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -53,10 +57,15 @@ impl std::fmt::Display for DatabaseErrorKind {
             Self::UnknownType(_e) => {
                 f.write_str("the data type is not known to this application, implement it")
             }
-            Self::UnknownInputType => {
-                f.write_str("the requested type is unknown to this application")
-            }
+            Self::UnknownInputType(ty_str) => f.write_str(
+                format!(
+                    "the requested type {:?} is unknown to this application",
+                    ty_str
+                )
+                .as_str(),
+            ),
             Self::ConfigUnavailable(_e) => f.write_str("the config fil cannot be read"),
+            Self::InvalidQuery(_e) => f.write_str("the query is invalid"),
         }
     }
 }
@@ -81,7 +90,186 @@ impl Field {
     }
 }
 
-pub struct Query {}
+pub struct ParameterizedQuery {
+    sql_query: String,
+}
+
+impl ParameterizedQuery {
+    pub fn new(table_name: String, where_fields: Vec<String>, where_values: Vec<String>) -> Self {
+        if where_fields.len() != where_values.len() {
+            panic!("number of fields and values must be the same");
+        } else if where_fields.is_empty() {
+            Self {
+                sql_query: format!("SELECT * FROM {}", table_name),
+            }
+        } else {
+            let mut query = format!("SELECT * FROM {} WHERE ", table_name);
+            for i in 0..where_fields.len() {
+                if i == where_fields.len() - 1 {
+                    query.push_str(&format!("{} = '{}'", where_fields[i], where_values[i]));
+                } else {
+                    query.push_str(&format!("{} = '{}' AND ", where_fields[i], where_values[i]));
+                }
+            }
+            Self { sql_query: query }
+        }
+    }
+}
+
+pub struct Ddl {
+    sql_statement: String,
+}
+
+impl Ddl {
+    pub fn new(
+        ddl_type: DdlType,
+        table_name: &str,
+        fields: &HashMap<&syn::Ident, &syn::Type>,
+    ) -> Self {
+        let instance = Self {
+            sql_statement: match ddl_type {
+                DdlType::Insert => {
+                    let q = format!(
+                        "INSERT INTO {} ({}) VALUES ({})",
+                        table_name,
+                        fields
+                            .iter()
+                            .map(|(k, _v)| format!("{}", k))
+                            .collect::<Vec<String>>()
+                            .join(", "),
+                        fields
+                            .iter()
+                            .map(|(_k, v)| format!("'{}'", quote::quote!(#v).to_string()))
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    );
+                    println!("q: {q}");
+                    q
+                }
+                DdlType::Create => {
+                    let final_create_statement = iter_fields(table_name, fields);
+                    println!("{final_create_statement}");
+                    final_create_statement
+                }
+                DdlType::Alter => todo!(), //not yet implemented
+                                           // format!(
+                                           //     "ALTER TABLE {} ADD COLUMN {}",
+                                           //     table_name
+                                           //     fields
+                                           //         .iter()
+                                           //         .map(|(k, v)| format!("{} {}", k, v))
+                                           //         .collect::<Vec<String>>()
+                                           //         .join(", "
+                                           // ),
+                                           //TODO RENAME
+                                           //TODO SET DATA TYPE
+                                           //TODO CONSTRAINT
+            },
+        };
+        instance
+    }
+}
+
+fn iter_fields(table_name: &str, fields: &HashMap<&syn::Ident, &syn::Type>) -> String {
+    let mut outer_sql_fields = Vec::with_capacity(fields.len());
+    let mut outer_constraints = Vec::new();
+    let mut final_create_statement = String::new();
+    for (k, v) in fields.iter() {
+        let parsed = util::parse_rust_field(v)
+            .map_err(|e| panic!("{:?}", e))
+            .unwrap();
+        if parsed.starts_with("new 1:1 relation") {
+            let ty = parsed.split(",").nth(1);
+            let ast: syn::DeriveInput = syn::parse(ty.unwrap().parse().unwrap()).unwrap();
+            if let syn::Data::Struct(d) = ast.data {
+                let field_map: HashMap<syn::Ident, syn::Type> = d
+                    .fields
+                    .clone()
+                    .into_iter()
+                    .map(|f| (f.ident.unwrap(), f.ty))
+                    .collect();
+                let borrowed_field_map: HashMap<&syn::Ident, &syn::Type> =
+                    field_map.iter().map(|(k, v)| (k, v)).collect();
+                iter_fields(k.to_string().as_ref(), &borrowed_field_map);
+            }
+            let field_type = util::parse_rust_field(v)
+                .map_err(|e| panic!("{:?}", e))
+                .unwrap();
+
+            let field_name = field_type.split(",").nth(0).unwrap();
+            let sub_type = field_type.split(",").nth(1).unwrap();
+            let relations = format!(
+                "CREATE TABLE {} (
+                    id SERIAL PRIMARY KEY,
+                    {} {}
+                );\n\n",
+                field_name, field_name, sub_type,
+            );
+            final_create_statement.push_str(&relations);
+            let constraint = format!(
+                "CONSTRAINT fk_{} 
+                    FOREIGN KEY (id) 
+                    REFERENCES {} ({}_id) 
+                    ON DELETE CASCADE\n\n",
+                field_name, field_name, field_name
+            )
+            .to_string();
+            final_create_statement.push_str(
+                format!(
+                    "CREATE TABLE {} ({},{});\n\n",
+                    k.to_string(),
+                    outer_sql_fields.join(", "),
+                    constraint
+                )
+                .to_string()
+                .as_ref(),
+            );
+        } else if parsed.starts_with("new 1:many relation") {
+            let sub_type = parsed.split(",").nth(1).unwrap();
+            let relations = format!(
+                "CREATE TABLE {} (
+                    id SERIAL PRIMARY KEY,
+                    {}_id bigint
+                    {} {},
+                )\n\n",
+                k.to_string(),
+                k.to_string(),
+                k.to_string(),
+                sub_type,
+            );
+            let constraint = format!(
+                "CONSTRAINT fk_{} 
+                    FOREIGN KEY (id) 
+                    REFERENCES {} ({}_id) 
+                    ON DELETE SET NULL\n\n",
+                sub_type, sub_type, sub_type
+            )
+            .to_string();
+            final_create_statement.push_str(&relations);
+            outer_sql_fields.push(format!("{}_id bigint", k.to_string()));
+            outer_constraints.push(constraint);
+        } else {
+            outer_sql_fields.push(format!("{} {}", k, parsed));
+        }
+    }
+    final_create_statement.push_str(&format!(
+        "CREATE TABLE {} ({}, {});\n\n",
+        table_name,
+        outer_sql_fields.join(", "),
+        outer_constraints.join(", ")
+    ));
+    final_create_statement
+}
+
+pub enum DdlType {
+    Insert,
+    Create,
+    Alter,
+}
+
+pub struct ResultRow {
+    pub columns: HashMap<String, String>,
+}
 
 pub struct Connection {
     query: String,
@@ -100,8 +288,9 @@ impl Connection {
 pub trait ActiveConnection {
     fn insert(&mut self, fields: &Vec<Field>, table_name: &str) -> Result<(), DatabaseError>;
     fn query_schema(&mut self, table_name: &str) -> Result<HashMap<String, String>, DatabaseError>;
-    #[allow(dead_code)]
-    fn execute(&mut self, query: Query);
+    fn execute_query(&mut self, query: ParameterizedQuery)
+    -> Result<Vec<ResultRow>, DatabaseError>;
+    fn execute_ddl(&mut self, ddl: Ddl);
     #[allow(dead_code)]
     fn close();
 }
@@ -113,7 +302,7 @@ impl ActiveConnection for Connection {
                 println!("name: {}, sql_type: {}", field.name, field.sql_type)
             }
             Err(DatabaseError {
-                kind: DatabaseErrorKind::InjectionAttempt,
+                kind: InjectionAttempt,
             })
         } else {
             //TODO finish insert statement
@@ -131,27 +320,54 @@ impl ActiveConnection for Connection {
         let result = self
             .client
             .query(query, &[&table_name])
-            .map_err(|e| DatabaseErrorKind::TableDoesNotExist(e))
-            .map_err(|kind| DatabaseError { kind });
+            .map_err(|e| DatabaseError {
+                kind: TableDoesNotExist(e),
+            });
         let mut schema: HashMap<String, String> = HashMap::new();
         for i in result.unwrap() {
             schema.insert(
-                i.try_get("column_name")
-                    .map_err(|e| DatabaseErrorKind::UnknownType(e))
-                    .map_err(|kind| DatabaseError { kind })?,
-                util::parse_sql_field(
-                    i.try_get("data_type")
-                        .map_err(|e| DatabaseErrorKind::UnknownType(e))
-                        .map_err(|kind| DatabaseError { kind })?,
-                )?,
+                i.try_get("column_name").map_err(|e| DatabaseError {
+                    kind: UnknownType(e),
+                })?,
+                util::parse_sql_field(i.try_get("data_type").map_err(|e| DatabaseError {
+                    kind: UnknownType(e),
+                })?)?,
             );
         }
         Ok(schema)
     }
 
-    fn execute(&mut self, _query: Query) {
-        todo!()
-        //"not yet implemented"
+    fn execute_query(
+        &mut self,
+        query: ParameterizedQuery,
+    ) -> Result<Vec<ResultRow>, DatabaseError> {
+        let res = self
+            .client
+            .query(&query.sql_query, &[])
+            .map_err(|e| DatabaseError {
+                kind: InvalidQuery(e),
+            })?;
+
+        let rows_result: Result<Vec<ResultRow>, DatabaseError> = res
+            .iter()
+            .map(|row| -> Result<ResultRow, DatabaseError> {
+                let mut columns: HashMap<String, String> = HashMap::new();
+                for (i, column) in row.columns().iter().enumerate() {
+                    let value: String = row.try_get(i).map_err(|e| DatabaseError {
+                        kind: UnknownType(e),
+                    })?;
+                    columns.insert(column.name().to_string(), value);
+                }
+                Ok(ResultRow { columns })
+            })
+            .collect();
+
+        let ret = rows_result?;
+        Ok(ret)
+    }
+
+    fn execute_ddl(&mut self, ddl: Ddl) {
+        let _ = self.client.query(&ddl.sql_statement, &[]);
     }
 
     fn close() {
@@ -171,7 +387,7 @@ pub fn connect() -> Result<Connection, DatabaseError> {
             // let s = e.kind().to_string();
             // println!("{}");
             Err(DatabaseError {
-                kind: DatabaseErrorKind::NotConnected(e),
+                kind: NotConnected(e),
             })
         } // Err(e) => Err("Something went wrong!".into()),
     }
@@ -222,6 +438,7 @@ fn postgres_client(conf: Conf) -> Result<Client, postgres::Error> {
     // }
 }
 
+//TODO remove
 fn iter_row(query_result: Vec<postgres::Row>) -> Result<(), postgres::Error> {
     Ok(for row in query_result {
         let id: i64 = row.try_get("id")?;
@@ -229,3 +446,94 @@ fn iter_row(query_result: Vec<postgres::Row>) -> Result<(), postgres::Error> {
         println!("Account {}: {}", id, balance);
     })
 }
+
+// fn derive_constraints_and_yield_relations(
+//     fields: &HashMap<&syn::Ident, &syn::Type>,
+//     parent_field_name: Option<&str>,
+//     final_create_statement: &mut String,
+// ) -> Option<(String, String)> {
+//     for f in fields {
+//         let field_type = util::parse_rust_field(f.1)
+//         .map_err(|e| panic!("{:?}", e))
+//             .unwrap();
+//         if field_type.starts_with("new 1:many relation") {
+//             let sub_type = field_type.split(",").nth(1).unwrap();
+//             let relations = format!(
+//                 "CREATE TABLE {} (
+//                     id SERIAL PRIMARY KEY,
+//                     {} {},
+//                     {}_id bigint
+//                 )",
+//                 sub_type,
+//                 fields,
+//                 parent_field_name.unwrap(),
+//             );
+//             let constraint = format!(
+//                 "CONSTRAINT fk_{}
+//                     FOREIGN KEY (id)
+//                     REFERENCES {} ({}_id)
+//                     ON DELETE SET NULL",
+//                     sub_type,
+//                     sub_type, sub_type
+//                 )
+//                 .to_string();
+//             final_create_statement.push_str(format!("", ""));
+//             Some((relations, constraint));
+//         } else if field_type.starts_with("new 1:1 relation") {
+//             let field_name = field_type.split(",").nth(0).unwrap();
+//             let sub_type = field_type.split(",").nth(1).unwrap();
+//             let relations = format!(
+//                 "CREATE TABLE {} (
+//                     id SERIAL PRIMARY KEY,
+//                     {} {}
+//                 )",
+//                 field_name,
+//                 field_name, sub_type,
+//             );
+//             let constraint = format!(
+//                 "CONSTRAINT fk_{}
+//                     FOREIGN KEY (id)
+//                     REFERENCES {} ({}_id)
+//                     ON DELETE CASCADE",
+//                 field_name,
+//                 field_name, field_name
+//             )
+//             .to_string();
+//             Some((relations, constraint));
+//         }
+//     }
+//     final_create_statement.push_str(&format!(
+//                             "CREATE TABLE {} ({}, {});",
+//                             parent_field_name,
+//                             ready_sql_fields.join(", "),
+//                             creates_and_constraints.1
+//                         ));
+//     CREATE TABLE users (
+//     user_id SERIAL PRIMARY KEY,
+//     username VARCHAR(50) NOT NULL
+// );
+
+// CREATE TABLE products (
+//     product_id SERIAL PRIMARY KEY,
+//     product_name VARCHAR(100) NOT NULL,
+//     price NUMERIC(10, 2) NOT NULL
+// );
+
+//     CREATE TABLE orders (
+//     order_id SERIAL PRIMARY KEY,
+//     user_id INT NOT NULL,
+//     product_id INT NOT NULL,
+//     quantity INT NOT NULL,
+//     order_date TIMESTAMP NOT NULL,
+
+//     -- First Foreign Key (referencing the users table)
+//     CONSTRAINT fk_user
+//         FOREIGN KEY (user_id)
+//         REFERENCES users (user_id)
+//         ON DELETE CASCADE,
+
+//     -- Second Foreign Key (referencing the products table)
+//     CONSTRAINT fk_product
+//         FOREIGN KEY (product_id)
+//         REFERENCES products (product_id)
+//         ON DELETE RESTRICT
