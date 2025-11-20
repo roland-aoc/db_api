@@ -147,7 +147,18 @@ impl Ddl {
                     q
                 }
                 DdlType::Create => {
-                    let final_create_statement = iter_fields(table_name, fields);
+                    let depth: u8 = 0;
+                    let mut outer_sql_fields: HashMap<u8, Vec<String>> = HashMap::new();
+                    outer_sql_fields.insert(depth.clone(), Vec::new());
+                    let mut outer_constraints: HashMap<u8, Vec<String>> = HashMap::new();
+                    outer_constraints.insert(depth.clone(), Vec::new());
+                    let final_create_statement = iter_fields(
+                        depth,
+                        table_name,
+                        fields,
+                        &mut outer_sql_fields,
+                        &mut outer_constraints,
+                    );
                     println!("{final_create_statement}");
                     final_create_statement
                 }
@@ -170,9 +181,13 @@ impl Ddl {
     }
 }
 
-fn iter_fields(table_name: &str, fields: &HashMap<&syn::Ident, &syn::Type>) -> String {
-    let mut outer_sql_fields = Vec::with_capacity(fields.len());
-    let mut outer_constraints = Vec::new();
+fn iter_fields(
+    mut depth: u8,
+    table_name: &str,
+    fields: &HashMap<&syn::Ident, &syn::Type>,
+    outer_sql_fields: &mut HashMap<u8, Vec<String>>,
+    outer_constraints: &mut HashMap<u8, Vec<String>>,
+) -> String {
     let mut final_create_statement = String::new();
     for (k, v) in fields.iter() {
         let parsed = util::parse_rust_field(v)
@@ -190,18 +205,29 @@ fn iter_fields(table_name: &str, fields: &HashMap<&syn::Ident, &syn::Type>) -> S
                     .collect();
                 let borrowed_field_map: HashMap<&syn::Ident, &syn::Type> =
                     field_map.iter().map(|(k, v)| (k, v)).collect();
-                iter_fields(k.to_string().as_ref(), &borrowed_field_map);
+                depth += 1;
+                //TODO is this correct?
+                outer_sql_fields.insert(depth.clone(), Vec::new());
+                outer_constraints.insert(depth.clone(), Vec::new());
+                iter_fields(
+                    depth,
+                    k.to_string().as_ref(),
+                    &borrowed_field_map,
+                    outer_sql_fields,
+                    outer_constraints,
+                );
+                depth -= 1;
             }
             let field_type = util::parse_rust_field(v)
                 .map_err(|e| panic!("{:?}", e))
                 .unwrap();
 
             let field_name = field_type.split(",").nth(0).unwrap();
-            let sub_type = field_type.split(",").nth(1).unwrap();
+            let sub_type = parsed.split(",").nth(1).unwrap();
             let relations = format!(
                 "CREATE TABLE {} (
                     id SERIAL PRIMARY KEY,
-                    {} {}
+                    {} {};
                 );\n\n",
                 field_name, field_name, sub_type,
             );
@@ -210,53 +236,81 @@ fn iter_fields(table_name: &str, fields: &HashMap<&syn::Ident, &syn::Type>) -> S
                 "CONSTRAINT fk_{} 
                     FOREIGN KEY (id) 
                     REFERENCES {} ({}_id) 
-                    ON DELETE CASCADE\n\n",
+                    ON DELETE SET NULL\n\n",
                 field_name, field_name, field_name
             )
             .to_string();
-            final_create_statement.push_str(
-                format!(
-                    "CREATE TABLE {} ({},{});\n\n",
-                    k.to_string(),
-                    outer_sql_fields.join(", "),
-                    constraint
-                )
-                .to_string()
-                .as_ref(),
-            );
+            
+            //TODO
+            // child table, i.e. dim, references the fact table key
+            //constraint is on the 1 table, the dim
+            //i.e. fact table should be created first
+            //for 1:1 chhild table reference id is marked as UNIQUE
+            
+            let mut vec1 = Vec::new();
+            vec1.push(format!("{}_id bigint", k.to_string()));
+            outer_sql_fields.insert(depth.clone(), vec1);
+            let mut vec2 = Vec::new();
+            vec2.push(constraint);
+            outer_constraints.insert(depth.clone(), vec2);
+            continue;
         } else if parsed.starts_with("new 1:many relation") {
+            // depth += 1;
             let sub_type = parsed.split(",").nth(1).unwrap();
-            let relations = format!(
-                "CREATE TABLE {} (
-                    id SERIAL PRIMARY KEY,
-                    {}_id bigint
-                    {} {},
-                )\n\n",
+            let relation = format!(
+                // "CREATE TABLE {} (
+                    "id SERIAL PRIMARY KEY,
+                    {}_id bigint,
+                    {} {}\n"
+                // );\n\n",
+                ,
+                // k.to_string(),
+                table_name,
                 k.to_string(),
-                k.to_string(),
-                k.to_string(),
-                sub_type,
+                sub_type
             );
             let constraint = format!(
                 "CONSTRAINT fk_{} 
                     FOREIGN KEY (id) 
                     REFERENCES {} ({}_id) 
-                    ON DELETE SET NULL\n\n",
-                sub_type, sub_type, sub_type
+                    ON DELETE SET NULL",
+                k.to_string(),
+                table_name,
+                k.to_string()
             )
             .to_string();
-            final_create_statement.push_str(&relations);
-            outer_sql_fields.push(format!("{}_id bigint", k.to_string()));
-            outer_constraints.push(constraint);
+            final_create_statement.push_str(
+                format!(
+                    "CREATE TABLE {} ({}, {});\n\n",
+                    k.to_string(),
+                    relation,
+                    constraint
+                )
+                .to_string()
+                .as_ref(),
+            );
+            // final_create_statement.push_str(&relation);
+            // depth -= 1;
+            continue;
         } else {
-            outer_sql_fields.push(format!("{} {}", k, parsed));
+            outer_sql_fields
+                .get_mut(&depth)
+                .expect("the depth of outer_sql_fields should be available")
+                .push(format!("{} {}", k, parsed));
+            outer_constraints.insert(depth.clone(), Vec::new());
         }
     }
     final_create_statement.push_str(&format!(
         "CREATE TABLE {} ({}, {});\n\n",
         table_name,
-        outer_sql_fields.join(", "),
-        outer_constraints.join(", ")
+        outer_sql_fields
+            .get(&depth)
+            .expect("the depth of outer_sql_fields should be available")
+            .join(", "),
+        outer_constraints
+            .get(&depth)
+            .expect("the depth of outer_constraints should be available")
+            .join(", ")
     ));
     final_create_statement
 }
