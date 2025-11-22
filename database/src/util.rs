@@ -1,3 +1,7 @@
+use regex::Regex;
+use std::collections::HashMap;
+use crate::domain::{StructDef, Field};
+
 use crate::DatabaseError;
 use crate::DatabaseErrorKind;
 
@@ -53,6 +57,7 @@ pub fn is_sql(data: &str) -> bool {
         || data.to_lowercase().contains("drop ");
 }
 
+
 pub fn parse_sql_field(sql_field: &str) -> Result<String, DatabaseError> {
     //TODO impl more types
     let ty = sql_field.to_lowercase();
@@ -74,6 +79,54 @@ pub fn parse_sql_field(sql_field: &str) -> Result<String, DatabaseError> {
             kind: DatabaseErrorKind::UnknownInputType(ty),
         })
     }
+}
+
+pub fn parse_structs(input: &str) -> HashMap<String, StructDef> {
+    let mut map = HashMap::new();
+    // Struct: allow for attributes and pub, multiline body
+    let re_struct = Regex::new(r"(?s)(?:#\[.*?\]\s*)*(?:pub\s+)?struct\s+([A-Za-z0-9_]+)\s*\{(.*?)\}").unwrap();
+    // Field: allow for attributes, pub, complex types, multiline
+    let re_field = Regex::new(r"(?m)^(?:\s*#\[.*\]\s*)*(?:\s*pub\s+)?\s*([A-Za-z0-9_]+)\s*:\s*([^,]+),").unwrap();
+    for caps in re_struct.captures_iter(input) {
+        let name = caps.get(1).unwrap().as_str().to_string();
+        let body = caps.get(2).unwrap().as_str();
+
+        let mut fields = Vec::new();
+        for fc in re_field.captures_iter(body) {
+            fields.push(Field {
+                name: fc.get(1).unwrap().as_str().trim().to_string(),
+                type_str: fc.get(2).unwrap().as_str().trim().to_string(),
+            });
+        }
+
+        map.insert(name.clone(), StructDef { name, fields });
+    }
+
+    map
+}
+
+pub fn map_rust_type_to_sql(ty: &str) -> Option<&'static str> {
+    match ty {
+        "u32" | "i32" | "u16" | "i16" | "u8" | "i8" => Some("INTEGER"),
+        "u64" | "i64" => Some("BIGINT"),
+        "String" | "&str" => Some("TEXT"),
+        "bool" => Some("BOOLEAN"),
+        _ => None,
+    }
+}
+
+pub fn strip_option(ty: &str) -> (bool, String) {
+    let opt_re = Regex::new(r"^Option\s*<\s*(.+)\s*>$").unwrap();
+    if let Some(c) = opt_re.captures(ty) {
+        (true, c[1].trim().to_string())
+    } else {
+        (false, ty.to_string())
+    }
+}
+
+pub fn is_vec(ty: &str) -> Option<String> {
+    let vec_re = Regex::new(r"^Vec\s*<\s*(.+)\s*>$").unwrap();
+    vec_re.captures(ty).map(|c| c[1].trim().to_string())
 }
 
 //TODO can this be moved to macro logic?

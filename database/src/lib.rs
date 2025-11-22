@@ -1,7 +1,9 @@
 pub mod util;
+pub mod domain;
+use domain::{StructDef};
 
 use postgres::{Client, NoTls};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use syn;
 
 use crate::util::Conf;
@@ -147,20 +149,21 @@ impl Ddl {
                     q
                 }
                 DdlType::Create => {
-                    let depth: u8 = 0;
-                    let mut outer_sql_fields: HashMap<u8, Vec<String>> = HashMap::new();
-                    outer_sql_fields.insert(depth.clone(), Vec::new());
-                    let mut outer_constraints: HashMap<u8, Vec<String>> = HashMap::new();
-                    outer_constraints.insert(depth.clone(), Vec::new());
-                    let final_create_statement = iter_fields(
-                        depth,
-                        table_name,
-                        fields,
-                        &mut outer_sql_fields,
-                        &mut outer_constraints,
-                    );
-                    println!("{final_create_statement}");
-                    final_create_statement
+                    let _domain_fields: VecDeque<StructDef> = VecDeque::new();
+                    
+                    let src = include_str!("../../src/model/entity.rs");
+                    let raw = format!(r#"{src}"#);
+                    let structs = util::parse_structs(&raw);
+                    
+                    let mut visited = HashSet::new();
+                    let mut output = Vec::new();
+
+                    for name in structs.keys() {
+                        iter_structs(name, &structs, &mut visited, &mut output);
+                    }
+
+                    println!("create sql: {}", output.join("\n\n"));
+                    output.join("\n\n")
                 }
                 DdlType::Alter => todo!(), //not yet implemented
                                            // format!(
@@ -181,7 +184,118 @@ impl Ddl {
     }
 }
 
-fn iter_fields(
+fn iter_structs(
+    name: &str,
+    structs: &HashMap<String, StructDef>,
+    visited: &mut HashSet<String>,
+    output: &mut Vec<String>,
+) {
+    if visited.contains(name) {
+        return;
+    }
+    visited.insert(name.to_string());
+
+    let sdef = match structs.get(name) {
+        Some(s) => s,
+        None => return,
+    };
+
+    let mut sql = Vec::new();
+    sql.push(format!("CREATE TABLE {} (", sdef.name.to_lowercase()));
+    sql.push("    id SERIAL PRIMARY KEY,".to_string());
+
+    let mut post_sql = Vec::new();
+
+    for field in &sdef.fields {
+        let (is_opt, inner) = util::strip_option(&field.type_str);
+
+        if let Some(inner_vec) = util::is_vec(&inner) {
+            // Vec<T> → child table
+            let child_table = format!("{}_{}", name.to_lowercase(), field.name.to_lowercase());
+
+            let mut child = Vec::new();
+            child.push(format!("CREATE TABLE {} (", child_table));
+            child.push("    id SERIAL PRIMARY KEY,".to_string());
+            child.push(format!("    {}_id INTEGER NOT NULL,", name.to_lowercase()));
+
+            if let Some(sql_ty) = util::map_rust_type_to_sql(&inner_vec) {
+                child.push(format!("    value {} NOT NULL,", sql_ty));
+            } else if structs.contains_key(&inner_vec) {
+                // Vec<Struct> → generate struct and FK inside that struct table
+                iter_structs(&inner_vec, structs, visited, output);
+
+                // Add FK later via ALTER
+                let alt = format!(
+                    "ALTER TABLE {} ADD COLUMN {}_id INTEGER NOT NULL;\n\
+                     ALTER TABLE {} ADD CONSTRAINT fk_{}_{}_id FOREIGN KEY ({}_id) REFERENCES {}(id);",
+                    inner_vec.to_lowercase(),
+                    name.to_lowercase(),
+                    inner_vec.to_lowercase(),
+                    inner_vec.to_lowercase(),
+                    name.to_lowercase(),
+                    name.to_lowercase(),
+                    name.to_lowercase()
+                );
+                post_sql.push(alt);
+            } else {
+                child.push("    value TEXT NOT NULL,".to_string());
+            }
+
+            child.push(format!(
+                "    FOREIGN KEY ({}_id) REFERENCES {}(id)",
+                name.to_lowercase(),
+                name.to_lowercase()
+            ));
+            child.push(");".to_string());
+
+            post_sql.push(child.join("\n"));
+            continue;
+        }
+
+        // primitive type
+        if let Some(sql_ty) = util::map_rust_type_to_sql(&inner) {
+            let null = if is_opt { "" } else { " NOT NULL" };
+            sql.push(format!("    {} {}{},", field.name, sql_ty, null));
+            continue;
+        }
+
+        // struct field → 1:1
+        if structs.contains_key(&inner) {
+            iter_structs(&inner, structs, visited, output);
+
+            let col = format!("{}_id", field.name);
+            let null = if is_opt { "" } else { " NOT NULL" };
+
+            sql.push(format!("    {} INTEGER{},", col, null));
+            sql.push(format!(
+                "    FOREIGN KEY ({}) REFERENCES {}(id),",
+                col,
+                inner.to_lowercase()
+            ));
+            continue;
+        }
+
+        // fallback: TEXT
+        let null = if is_opt { "" } else { " NOT NULL" };
+        sql.push(format!("    {} TEXT{},", field.name, null));
+    }
+
+    // Clean last comma
+    if let Some(last) = sql.last_mut() {
+        *last = last.trim_end_matches(',').to_string();
+    }
+
+    sql.push(");".to_string());
+
+    output.push(sql.join("\n"));
+
+    for p in post_sql {
+        output.push(p);
+    }
+}
+
+//TODO remove
+fn _iter_fields_old(
     mut depth: u8,
     table_name: &str,
     fields: &HashMap<&syn::Ident, &syn::Type>,
@@ -209,7 +323,7 @@ fn iter_fields(
                 //TODO is this correct?
                 outer_sql_fields.insert(depth.clone(), Vec::new());
                 outer_constraints.insert(depth.clone(), Vec::new());
-                iter_fields(
+                _iter_fields_old(
                     depth,
                     k.to_string().as_ref(),
                     &borrowed_field_map,

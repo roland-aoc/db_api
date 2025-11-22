@@ -28,7 +28,9 @@ pub struct Picture {
 
 use migration::Migrate;
 //this only work at module level, not if struct is defined inside a method
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, migration_macro::Migrate)]
+#[derive(
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, migration_macro::Migrate,
+)]
 pub struct DataSet {
     pub submit_source: String,
     #[serde(with = "date_format")]
@@ -70,7 +72,7 @@ pub struct DataSet {
 
     pub file_upload: Vec<String>,
     pub pictures: Vec<Picture>,
-    
+
     pub time_to_submit: String,
     pub preview: String,
     pub validated_new_required_field_ids: String,
