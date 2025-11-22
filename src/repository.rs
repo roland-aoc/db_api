@@ -1,4 +1,5 @@
-use database::{self, ActiveConnection, Field};
+use database::{self, ActiveConnection};
+use database::domain::{Field};
 use database::{Connection, DatabaseError};
 use crate::model::entity::DataSet;
 
@@ -114,7 +115,7 @@ fn persist(
 fn build_insertion_fields(_data_set: DataSet) -> Vec<Field> {
     let v = vec![Field {
         name: String::from("length"),
-        sql_type: String::from("int"),
+        type_str: String::from("int"),
     }];
     // for data_set
     v

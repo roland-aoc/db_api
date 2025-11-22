@@ -1,12 +1,12 @@
 pub mod util;
 pub mod domain;
-use domain::{StructDef};
+use crate::domain::{StructDef, Field};
+use std::collections::{HashMap, HashSet, VecDeque};
+use crate::util::Conf;
 
 use postgres::{Client, NoTls};
-use std::collections::{HashMap, HashSet, VecDeque};
 use syn;
-
-use crate::util::Conf;
+use regex::Regex;
 
 #[derive(Debug)]
 pub struct DatabaseError {
@@ -80,19 +80,6 @@ impl std::error::Error for DatabaseErrorKind {
     }
 }
 
-//TODO remove, refactor
-pub struct Field {
-    pub name: String,
-    pub sql_type: String,
-}
-
-impl Field {
-    #[allow(dead_code)]
-    fn new(name: String, sql_type: String) -> Self {
-        Self { name, sql_type }
-    }
-}
-
 pub struct ParameterizedQuery {
     sql_query: String,
 }
@@ -154,7 +141,7 @@ impl Ddl {
                     
                     let src = include_str!("../../src/model/entity.rs");
                     let raw = format!(r#"{src}"#);
-                    let structs = util::parse_structs(&raw);
+                    let structs = parse_structs(&raw);
                     
                     let mut visited = HashSet::new();
                     let mut output = Vec::new();
@@ -185,6 +172,28 @@ impl Ddl {
     }
 }
 
+fn parse_structs(input: &str) -> HashMap<String, StructDef> {
+    let mut map = HashMap::new();
+    let re_struct = Regex::new(r"(?s)(?:#\[.*?\]\s*)*(?:pub\s+)?struct\s+([A-Za-z0-9_]+)\s*\{(.*?)\}").unwrap();
+    let re_field = Regex::new(r"(?m)^(?:\s*#\[.*\]\s*)*(?:\s*pub\s+)?\s*([A-Za-z0-9_]+)\s*:\s*([^,]+),").unwrap();
+    for caps in re_struct.captures_iter(input) {
+        let name = caps.get(1).unwrap().as_str().to_string();
+        let body = caps.get(2).unwrap().as_str();
+
+        let mut fields = Vec::new();
+        for fc in re_field.captures_iter(body) {
+            fields.push(Field {
+                name: fc.get(1).unwrap().as_str().trim().to_string(),
+                type_str: fc.get(2).unwrap().as_str().trim().to_string(),
+            });
+        }
+
+        map.insert(name.clone(), StructDef { name, fields });
+    }
+
+    map
+}
+
 fn iter_structs(
     name: &str,
     structs: &HashMap<String, StructDef>,
@@ -212,7 +221,7 @@ fn iter_structs(
 
         if let Some(inner_vec) = util::is_vec(&inner) {
             // Vec<T> → child table
-            let child_table = format!("{}_{}", name.to_lowercase(), field.name.to_lowercase());
+            let child_table = format!("{}", field.name.to_lowercase());
 
             let mut child = Vec::new();
             child.push(format!("CREATE TABLE {} (", child_table));
@@ -243,7 +252,7 @@ fn iter_structs(
             }
 
             child.push(format!(
-                "    FOREIGN KEY ({}_id) REFERENCES {}(id)",
+                "    FOREIGN KEY ({}_id) REFERENCES {} (id)",
                 name.to_lowercase(),
                 name.to_lowercase()
             ));
@@ -333,7 +342,7 @@ impl ActiveConnection for Connection {
     fn insert(&mut self, fields: &Vec<Field>, table_name: &str) -> Result<(), DatabaseError> {
         if util::is_sql(table_name) {
             for field in fields {
-                println!("name: {}, sql_type: {}", field.name, field.sql_type)
+                println!("name: {}, sql_type: {}", field.name, field.type_str)
             }
             Err(DatabaseError {
                 kind: InjectionAttempt,

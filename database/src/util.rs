@@ -1,6 +1,4 @@
 use regex::Regex;
-use std::collections::HashMap;
-use crate::domain::{StructDef, Field};
 
 use crate::DatabaseError;
 use crate::DatabaseErrorKind;
@@ -81,27 +79,7 @@ pub fn parse_sql_field(sql_field: &str) -> Result<String, DatabaseError> {
     }
 }
 
-pub fn parse_structs(input: &str) -> HashMap<String, StructDef> {
-    let mut map = HashMap::new();
-    let re_struct = Regex::new(r"(?s)(?:#\[.*?\]\s*)*(?:pub\s+)?struct\s+([A-Za-z0-9_]+)\s*\{(.*?)\}").unwrap();
-    let re_field = Regex::new(r"(?m)^(?:\s*#\[.*\]\s*)*(?:\s*pub\s+)?\s*([A-Za-z0-9_]+)\s*:\s*([^,]+),").unwrap();
-    for caps in re_struct.captures_iter(input) {
-        let name = caps.get(1).unwrap().as_str().to_string();
-        let body = caps.get(2).unwrap().as_str();
 
-        let mut fields = Vec::new();
-        for fc in re_field.captures_iter(body) {
-            fields.push(Field {
-                name: fc.get(1).unwrap().as_str().trim().to_string(),
-                type_str: fc.get(2).unwrap().as_str().trim().to_string(),
-            });
-        }
-
-        map.insert(name.clone(), StructDef { name, fields });
-    }
-
-    map
-}
 
 pub fn map_rust_type_to_sql(ty: &str) -> Option<&'static str> {
     match ty {
