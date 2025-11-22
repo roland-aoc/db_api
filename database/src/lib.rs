@@ -200,10 +200,13 @@ fn iter_structs(
     visited: &mut HashSet<String>,
     output: &mut Vec<String>,
 ) {
-    if visited.contains(name) {
+
+
+    let singular_name = util::singularize(name);
+    if visited.contains(&singular_name) || visited.contains(name) {
         return;
     }
-    visited.insert(name.to_string());
+    visited.insert(singular_name.clone());
 
     let sdef = match structs.get(name) {
         Some(s) => s,
@@ -211,7 +214,7 @@ fn iter_structs(
     };
 
     let mut sql = Vec::new();
-    sql.push(format!("CREATE TABLE {} (", sdef.name.to_lowercase()));
+    sql.push(format!("CREATE TABLE IF NOT EXISTS {} (", singular_name.to_lowercase()));
     sql.push("    id SERIAL PRIMARY KEY,".to_string());
 
     let mut post_sql = Vec::new();
@@ -221,12 +224,18 @@ fn iter_structs(
 
         if let Some(inner_vec) = util::is_vec(&inner) {
             // Vec<T> → child table
-            let child_table = format!("{}", field.name.to_lowercase());
+            let child_table = util::singularize(&field.name.to_lowercase());
+
+            // Avoid duplicate table creation for plural field names
+            if visited.contains(&child_table) {
+                continue;
+            }
+            visited.insert(child_table.clone());
 
             let mut child = Vec::new();
-            child.push(format!("CREATE TABLE {} (", child_table));
+            child.push(format!("CREATE TABLE IF NOT EXISTS {} (", child_table));
             child.push("    id SERIAL PRIMARY KEY,".to_string());
-            child.push(format!("    {}_id INTEGER NOT NULL,", name.to_lowercase()));
+            child.push(format!("    {}_id INTEGER NOT NULL,", singular_name.to_lowercase()));
 
             if let Some(sql_ty) = util::map_rust_type_to_sql(&inner_vec) {
                 child.push(format!("    value {} NOT NULL,", sql_ty));
@@ -239,12 +248,12 @@ fn iter_structs(
                     "ALTER TABLE {} ADD COLUMN {}_id INTEGER NOT NULL;\n\
                      ALTER TABLE {} ADD CONSTRAINT fk_{}_{}_id FOREIGN KEY ({}_id) REFERENCES {}(id);",
                     inner_vec.to_lowercase(),
-                    name.to_lowercase(),
+                    singular_name.to_lowercase(),
                     inner_vec.to_lowercase(),
                     inner_vec.to_lowercase(),
-                    name.to_lowercase(),
-                    name.to_lowercase(),
-                    name.to_lowercase()
+                    singular_name.to_lowercase(),
+                    singular_name.to_lowercase(),
+                    singular_name.to_lowercase()
                 );
                 post_sql.push(alt);
             } else {
@@ -253,8 +262,8 @@ fn iter_structs(
 
             child.push(format!(
                 "    FOREIGN KEY ({}_id) REFERENCES {} (id)",
-                name.to_lowercase(),
-                name.to_lowercase()
+                singular_name.to_lowercase(),
+                singular_name.to_lowercase()
             ));
             child.push(");".to_string());
 

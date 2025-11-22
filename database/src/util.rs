@@ -55,7 +55,6 @@ pub fn is_sql(data: &str) -> bool {
         || data.to_lowercase().contains("drop ");
 }
 
-
 pub fn parse_sql_field(sql_field: &str) -> Result<String, DatabaseError> {
     //TODO impl more types
     let ty = sql_field.to_lowercase();
@@ -78,8 +77,6 @@ pub fn parse_sql_field(sql_field: &str) -> Result<String, DatabaseError> {
         })
     }
 }
-
-
 
 pub fn map_rust_type_to_sql(ty: &str) -> Option<&'static str> {
     match ty {
@@ -106,6 +103,17 @@ pub fn is_vec(ty: &str) -> Option<String> {
     vec_re.captures(ty).map(|c| c[1].trim().to_string())
 }
 
+pub fn singularize(s: &str) -> String {
+    if s.ends_with("ies") {
+        format!("{}y", &s[..s.len() - 3])
+    } else if s.ends_with("ses") {
+        format!("{}s", &s[..s.len() - 2])
+    } else if s.ends_with("s") && !s.ends_with("ss") {
+        s[..s.len() - 1].to_string()
+    } else {
+        s.to_string()
+    }
+}
 
 #[cfg(test)]
 mod tests {
