@@ -83,9 +83,7 @@ pub fn parse_sql_field(sql_field: &str) -> Result<String, DatabaseError> {
 
 pub fn parse_structs(input: &str) -> HashMap<String, StructDef> {
     let mut map = HashMap::new();
-    // Struct: allow for attributes and pub, multiline body
     let re_struct = Regex::new(r"(?s)(?:#\[.*?\]\s*)*(?:pub\s+)?struct\s+([A-Za-z0-9_]+)\s*\{(.*?)\}").unwrap();
-    // Field: allow for attributes, pub, complex types, multiline
     let re_field = Regex::new(r"(?m)^(?:\s*#\[.*\]\s*)*(?:\s*pub\s+)?\s*([A-Za-z0-9_]+)\s*:\s*([^,]+),").unwrap();
     for caps in re_struct.captures_iter(input) {
         let name = caps.get(1).unwrap().as_str().to_string();
@@ -110,6 +108,7 @@ pub fn map_rust_type_to_sql(ty: &str) -> Option<&'static str> {
         "u32" | "i32" | "u16" | "i16" | "u8" | "i8" => Some("INTEGER"),
         "u64" | "i64" => Some("BIGINT"),
         "String" | "&str" => Some("TEXT"),
+        "f32" | "f64" => Some("DOUBLE PRECISION"),
         "bool" => Some("BOOLEAN"),
         _ => None,
     }
@@ -129,59 +128,6 @@ pub fn is_vec(ty: &str) -> Option<String> {
     vec_re.captures(ty).map(|c| c[1].trim().to_string())
 }
 
-//TODO can this be moved to macro logic?
-fn get_nested_type_ident(ty: &syn::Type) -> Option<syn::Ident> {
-    if let syn::Type::Path(syn::TypePath { path, .. }) = ty {
-        if let Some(segment) = path.segments.last() {
-            if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-                if let Some(syn::GenericArgument::Type(inner_type)) = args.args.first() {
-                    return get_nested_type_ident(inner_type);
-                }
-            }
-            let s = segment.ident.clone();
-            println!("nested ident: {:?}", s);
-            Some(s)
-        } else {
-            None
-        }
-    } else {
-        None 
-    }
-}
-
-pub fn parse_rust_field(rust_field: &syn::Type) -> Result<String, DatabaseError> {
-    let ty = quote::quote!(#rust_field).to_string().to_lowercase();
-    println!("{ty}");
-    if ty.starts_with("string") {
-        Ok(String::from("varchar(255)"))
-    } else if ty.starts_with("u32") || ty.starts_with("i32") {
-        Ok(String::from("int"))
-    } else if ty.starts_with("u64") || ty.starts_with("i64") {
-        Ok(String::from("bigint"))
-    } else if ty.starts_with("f32") {
-        Ok(String::from("numeric(10,5)"))
-    } else if ty.starts_with("bool") {
-        Ok(String::from("boolean"))
-    } else if ty.starts_with("naivedate") {
-        Ok(String::from("timestamp"))
-    } else if ty.starts_with("vec") {
-        let sub_ident: syn::Ident = get_nested_type_ident(&syn::parse_str(&ty).unwrap())
-        .expect("Cannot get nested sub_ident through typePath");
-    let sub_type: syn::Type =
-            syn::parse_str(sub_ident.to_string().as_str()).expect("Cannot parse sub_ident");
-        Ok(String::from(format!(
-            "new 1:many relation,{}",
-            parse_rust_field(&sub_type).unwrap()
-        )))
-    //TODO remove
-    } else if ty.starts_with("picture") {
-        Ok(String::from(format!( "new 1:1 relation,{}", ty)))
-    } else {
-        Err(DatabaseError {
-            kind: DatabaseErrorKind::UnknownInputType(ty),
-        })
-    }
-}
 
 #[cfg(test)]
 mod tests {
