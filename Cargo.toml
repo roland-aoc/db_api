@@ -4,6 +4,29 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+migration_macro = { path = "migration/migration_macro" }
+migration = { path = "migration" }
+database = { path = "database" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+dotenvy = { workspace = true }
+tiny_http = { workspace = true }
+warp = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+syn = { workspace = true }
+quote = { workspace = true }
+regex = { workspace = true }
+
+[workspace]
+members = [
+    ".", 
+    "migration/migration_macro",
+    "migration",
+    "database",
+]
+
+[workspace.dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0"
 dotenvy = "0.15"
@@ -11,7 +34,8 @@ tiny_http = "0.12.0"
 warp = "0.3"
 tokio = { version = "1", features = ["rt", "macros", "rt-multi-thread"] }
 chrono = "0.4.42"
+syn = "2.0"
+quote = "1.0"
+regex = "1"
 
-migration_macro = { path = "migration/migration_macro" }
-migration = { path = "migration" }
 database = { path = "database" }

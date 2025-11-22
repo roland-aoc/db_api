@@ -7,8 +7,8 @@ edition = "2024"
 proc-macro = true
 
 [dependencies]
-syn = "2.0"
-quote = "1.0"
-serde_json = "1.0"
-
-database = { path = "../../database"}
+syn = { workspace = true }
+quote = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+database = { workspace = true }
