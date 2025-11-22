@@ -18,10 +18,10 @@ fn impl_migrate_macro(ast: &syn::DeriveInput) -> TokenStream {
             let res = get_connection();
             match res {
                 Ok(mut cnxn) => {
-                    let schema_res: Result<HashMap<String, String>, MigrationError> = get_schema(&mut cnxn);
+                    let schema_res: Result<HashMap<String, String>, InternalMigrationError> = get_schema(&mut cnxn);
                     let schema = match schema_res {
                         Ok(v) => v,
-                        Err(e) => {println!("{:?}", e); return TokenStream::new()}
+                        Err(e) => {println!("{:?}", e); panic!("{:?}", e)}
                     };
                     //apparently constructor struggles with type hints of complex generics 
                     let structure: &HashMap<syn::Ident, syn::Type> = &d
@@ -48,8 +48,8 @@ fn impl_migrate_macro(ast: &syn::DeriveInput) -> TokenStream {
                 Err(e) => panic!("{:?}", e.kind),
             }
         }
-        syn::Data::Enum(_) => panic!("not covered"),
-        syn::Data::Union(_) => panic!("not covered"),
+        syn::Data::Enum(_) => panic!("enum not covered"),
+        syn::Data::Union(_) => panic!("union not covered"),
     }
     let generated = quote::quote! {
         impl Migrate for #name {
@@ -82,11 +82,11 @@ fn compare_states<'a>(
     changes
 }
 
-fn get_schema(cnxn: &mut database::Connection) -> Result<HashMap<String, String>, MigrationError> {
+fn get_schema(cnxn: &mut database::Connection) -> Result<HashMap<String, String>, InternalMigrationError> {
     let hash_map: HashMap<String, String> = cnxn
         .query_schema("account")
-        .map_err(|e| MigrationErrorKind::Inner(e))
-        .map_err(|kind| MigrationError { kind })?;
+        .map_err(|e| InternalMigrationErrorKind::Inner(e))
+        .map_err(|kind| InternalMigrationError { kind })?;
     Ok(hash_map)
     // {
     //     Ok(fields) => {
@@ -115,25 +115,25 @@ fn get_schema(cnxn: &mut database::Connection) -> Result<HashMap<String, String>
 // }
 
 #[derive(Debug)]
-struct MigrationError {
-    pub kind: MigrationErrorKind,
+struct InternalMigrationError {
+    pub kind: InternalMigrationErrorKind,
 }
 
 //TODO these can't be expoerte, what to do?
 #[derive(Debug)]
 #[non_exhaustive]
-enum MigrationErrorKind {
+enum InternalMigrationErrorKind {
     #[allow(dead_code)]
     Inner(database::DatabaseError),
 }
 
-fn get_connection() -> Result<database::Connection, MigrationError> {
+fn get_connection() -> Result<database::Connection, InternalMigrationError> {
     // :Result<Connection, Box<dyn std::error::Error>>
 
     match database::connect() {
         Ok(connection) => Ok(connection),
         Err(e) => Err(e)
-            .map_err(|e| MigrationErrorKind::Inner(e))
-            .map_err(|kind| MigrationError { kind }),
+            .map_err(|e| InternalMigrationErrorKind::Inner(e))
+            .map_err(|kind| InternalMigrationError { kind }),
     }
 }

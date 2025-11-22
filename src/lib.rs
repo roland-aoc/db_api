@@ -1,6 +1,6 @@
 mod controller;
-mod model;
-mod repository;
+pub mod model;
+pub mod repository;
 mod service;
 mod util;
 
