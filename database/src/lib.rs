@@ -200,8 +200,6 @@ fn iter_structs(
     visited: &mut HashSet<String>,
     output: &mut Vec<String>,
 ) {
-
-
     let singular_name = util::singularize(name);
     if visited.contains(&singular_name) || visited.contains(name) {
         return;
@@ -214,10 +212,11 @@ fn iter_structs(
     };
 
     let mut sql = Vec::new();
-    sql.push(format!("CREATE TABLE IF NOT EXISTS {} (", singular_name.to_lowercase()));
+    sql.push(format!("CREATE TABLE {} (", singular_name.to_lowercase()));
     sql.push("    id SERIAL PRIMARY KEY,".to_string());
 
     let mut post_sql = Vec::new();
+    let mut constraints = Vec::new();
 
     for field in &sdef.fields {
         let (is_opt, inner) = util::strip_option(&field.type_str);
@@ -226,42 +225,50 @@ fn iter_structs(
             // Vec<T> → child table
             let child_table = util::singularize(&field.name.to_lowercase());
 
-            // Avoid duplicate table creation for plural field names
             if visited.contains(&child_table) {
                 continue;
             }
-            visited.insert(child_table.clone());
-
             let mut child = Vec::new();
-            child.push(format!("CREATE TABLE IF NOT EXISTS {} (", child_table));
-            child.push("    id SERIAL PRIMARY KEY,".to_string());
-            child.push(format!("    {}_id INTEGER NOT NULL,", singular_name.to_lowercase()));
-
+            let singular_inner_vec = util::singularize(&inner_vec);
+            if visited.contains(&singular_inner_vec) 
+                || visited.contains(&singular_inner_vec.to_lowercase())
+                || visited.contains(&inner_vec.to_lowercase())
+                || visited.contains(&inner_vec) {
+                    println!("");
+            } else {
+                visited.insert(child_table.clone());
+            
+                child.push(format!("CREATE TABLE {} (", child_table));
+                child.push("    id SERIAL PRIMARY KEY,".to_string());
+                child.push(format!("    {}_id INTEGER NOT NULL,", singular_name.to_lowercase()));
+            }
             if let Some(sql_ty) = util::map_rust_type_to_sql(&inner_vec) {
                 child.push(format!("    value {} NOT NULL,", sql_ty));
-            } else if structs.contains_key(&inner_vec) {
-                // Vec<Struct> → generate struct and FK inside that struct table
-                iter_structs(&inner_vec, structs, visited, output);
-
-                // Add FK later via ALTER
+            } else if structs.contains_key(&singular_inner_vec) {
+                iter_structs(&util::singularize(&inner_vec), structs, visited, output);
+            
                 let alt = format!(
                     "ALTER TABLE {} ADD COLUMN {}_id INTEGER NOT NULL;\n\
                      ALTER TABLE {} ADD CONSTRAINT fk_{}_{}_id FOREIGN KEY ({}_id) REFERENCES {}(id);",
-                    inner_vec.to_lowercase(),
+                    singular_inner_vec.to_lowercase(),
                     singular_name.to_lowercase(),
-                    inner_vec.to_lowercase(),
-                    inner_vec.to_lowercase(),
+                    singular_inner_vec.to_lowercase(),
+                    singular_inner_vec.to_lowercase(),
                     singular_name.to_lowercase(),
                     singular_name.to_lowercase(),
                     singular_name.to_lowercase()
                 );
                 post_sql.push(alt);
+                continue;
             } else {
                 child.push("    value TEXT NOT NULL,".to_string());
             }
 
+            // Use CONSTRAINT for foreign key
             child.push(format!(
-                "    FOREIGN KEY ({}_id) REFERENCES {} (id)",
+                "    CONSTRAINT fk_{}_{}_id FOREIGN KEY ({}_id) REFERENCES {} (id)",
+                child_table,
+                singular_name.to_lowercase(),
                 singular_name.to_lowercase(),
                 singular_name.to_lowercase()
             ));
@@ -280,14 +287,17 @@ fn iter_structs(
 
         // struct field → 1:1
         if structs.contains_key(&inner) {
-            iter_structs(&inner, structs, visited, output);
+            iter_structs(&util::singularize(&inner), structs, visited, output);
 
             let col = format!("{}_id", field.name);
             let null = if is_opt { "" } else { " NOT NULL" };
 
             sql.push(format!("    {} INTEGER{},", col, null));
-            sql.push(format!(
-                "    FOREIGN KEY ({}) REFERENCES {}(id),",
+            // Add constraint instead of direct FOREIGN KEY
+            constraints.push(format!(
+                "    CONSTRAINT fk_{}_{}_id FOREIGN KEY ({}) REFERENCES {}(id),",
+                singular_name.to_lowercase(),
+                col,
                 col,
                 inner.to_lowercase()
             ));
@@ -299,9 +309,14 @@ fn iter_structs(
         sql.push(format!("    {} TEXT{},", field.name, null));
     }
 
-    // Clean last comma
+    // Remove trailing comma from last column or constraint
     if let Some(last) = sql.last_mut() {
         *last = last.trim_end_matches(',').to_string();
+    }
+
+    // Add constraints (if any)
+    for constraint in &constraints {
+        sql.push(constraint.trim_end_matches(',').to_string());
     }
 
     sql.push(");".to_string());
