@@ -13,6 +13,7 @@ pub fn migrate_macro_derive(input: TokenStream) -> TokenStream {
 
 fn impl_migrate_macro(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
+    let mut _fields: Option<syn::Fields> = None;
     match &ast.data {
         syn::Data::Struct(d) => {
             let res = get_connection();
@@ -24,6 +25,7 @@ fn impl_migrate_macro(ast: &syn::DeriveInput) -> TokenStream {
                         Err(e) => {println!("{:?}", e); panic!("{:?}", e)}
                     };
                     //apparently constructor struggles with type hints of complex generics 
+                    _fields = Some(d.fields.clone());
                     let structure: &HashMap<syn::Ident, syn::Type> = &d
                         .fields
                         .clone()
@@ -55,6 +57,10 @@ fn impl_migrate_macro(ast: &syn::DeriveInput) -> TokenStream {
         impl Migrate for #name {
             fn migrate(&self) {
                 println!("Hello, Macro! My name is {}!", stringify!(#name));
+            }
+
+            fn get_fields(&self) -> syn::Fields {
+                self.#_fields.unwrap()
             }
         }
     };

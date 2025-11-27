@@ -17,6 +17,7 @@ chrono = { workspace = true }
 syn = { workspace = true }
 quote = { workspace = true }
 regex = { workspace = true }
+proc-macro2 = { workspace = true }
 
 [workspace]
 members = [
@@ -37,5 +38,6 @@ chrono = "0.4.42"
 syn = "2.0"
 quote = "1.0"
 regex = "1"
+proc-macro2 = "1.0.103"
 
 database = { path = "database" }

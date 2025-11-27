@@ -9,3 +9,4 @@ serde_json = { workspace = true }
 dotenvy = { workspace = true }
 chrono = { workspace = true }
 database = { workspace = true }
+syn = { workspace = true }

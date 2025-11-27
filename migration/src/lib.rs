@@ -43,4 +43,5 @@
 
 pub trait Migrate {
     fn migrate(&self);
+    fn get_fields(&self) -> syn::Fields;
 }

@@ -12,7 +12,7 @@ pub struct StructDef {
 
 impl Field {
     #[allow(dead_code)]
-    fn new(name: String, type_str: String) -> Self {
+    pub fn new(name: String, type_str: String) -> Self {
         Self { name, type_str }
     }
 }
