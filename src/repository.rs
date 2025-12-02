@@ -116,18 +116,7 @@ fn persist(
 //     Err(s.into())},
 
 fn build_insertion_fields(data_set: DataSet) -> Result<Vec<Field>, RepositoryError> {
-    let mut v = Vec::new();
-    for field in data_set.get_fields().iter() {
-        let ident_option: Option<&syn::Ident> = field
-            .ident
-            .as_ref();
-        let i:Result<&syn::Ident, RepositoryError> = match ident_option {
-            Some(ident) => Ok(ident),
-            None => Err(RepositoryError { kind: RepositoryErrorKind::FieldParsing})
-        };
-        v.push(Field::new(i.unwrap().to_string(), quote::quote!(#field.ty).to_string()));
-    }
-    Ok(v)
+    Ok(data_set.get_fields())
 }
 
 // fn persist(data_set: DataSet) -> Result<(), jdbc::errors::Error> {

@@ -1,66 +1,78 @@
 use proc_macro::TokenStream;
+use quote::quote;
 use std::collections::HashMap;
 
 use database::{self, ActiveConnection, DdlType};
+use syn::{self, Data, DeriveInput};
 
 #[proc_macro_derive(Migrate)]
-// #[proc_macro]
 pub fn migrate_macro_derive(input: TokenStream) -> TokenStream {
-    let ast = syn::parse(input).unwrap();
+    let ast: DeriveInput = syn::parse(input).unwrap();
     impl_migrate_macro(&ast)
-    // TokenStream::new()
 }
 
-fn impl_migrate_macro(ast: &syn::DeriveInput) -> TokenStream {
+fn impl_migrate_macro(ast: &DeriveInput) -> TokenStream {
     let name = &ast.ident;
-    let mut _fields: Option<syn::Fields> = None;
-    match &ast.data {
-        syn::Data::Struct(d) => {
-            let res = get_connection();
-            match res {
-                Ok(mut cnxn) => {
-                    let schema_res: Result<HashMap<String, String>, InternalMigrationError> = get_schema(&mut cnxn);
-                    let schema = match schema_res {
-                        Ok(v) => v,
-                        Err(e) => {println!("{:?}", e); panic!("{:?}", e)}
-                    };
-                    //apparently constructor struggles with type hints of complex generics 
-                    _fields = Some(d.fields.clone());
-                    let structure: &HashMap<syn::Ident, syn::Type> = &d
-                        .fields
-                        .clone()
-                        .into_iter()
-                        .map(|f| {
-                            // let ident = f
-                            //     .ident
-                            //     .as_ref()
-                            //     .expect("ident string is None")
-                            //     .to_string();
-                            // let ty = &f.ty;
-                            // let ty_str = quote::quote!(#ty).to_string();
-                            // (ident, ty_str)
-                            (f.ident.unwrap(), f.ty)
-                        })
-                        .collect();
-                    let changes_as_rust_types = compare_states(&schema, &structure);
-                    //TODO what if there are more than 0 indexed fields?
-                    cnxn.execute_ddl(
-                        database::Ddl::new(DdlType::Create, &name.to_string(), &changes_as_rust_types))
-                },
-                Err(e) => panic!("{:?}", e.kind),
-            }
+
+    // Build code to push database::domain::Field entries at runtime.
+    let fields_build = match &ast.data {
+        Data::Struct(d) => {
+            let mut cnxn = get_connection().expect("Connection could't be gotten!"); //TODO add errior handling
+            let schema: HashMap<String, String> =
+                get_schema(&mut cnxn).expect("Couldn't get schema!"); //TODO add error handling
+
+            let structure: Vec<(String, String)> = d
+                .fields
+                .iter()
+                .filter_map(|f| {
+                    let _ident = f.ident.as_ref()?;
+                    let ty = &f.ty;
+                    Some((
+                        stringify!(#_ident).to_string(),
+                        quote::quote!(#ty).to_string(),
+                    ))
+                })
+                .collect();
+
+            let structure_map: HashMap<String, String> = structure
+            .iter()
+            .cloned()
+            .collect();
+
+            let changes_as_rust_types = compare_states(&schema, &structure_map);
+
+            let fields_as_tokens = structure
+                .iter()
+                .map(|(name, ty)| {
+                    quote! {
+                        fields.push(database::domain::Field::new(
+                            #name.to_string(),
+                            #ty.to_string()
+                        ));
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            cnxn.execute_ddl(database::Ddl::new(
+                DdlType::Create,
+                &name.to_string(),
+                &changes_as_rust_types,
+            ));
+            quote! { #(#fields_as_tokens)* }
         }
-        syn::Data::Enum(_) => panic!("enum not covered"),
-        syn::Data::Union(_) => panic!("union not covered"),
-    }
-    let generated = quote::quote! {
-        impl Migrate for #name {
+        _ => quote! {},
+    };
+
+    let generated = quote! {
+        impl migration::Migrate for #name {
             fn migrate(&self) {
-                println!("Hello, Macro! My name is {}!", stringify!(#name));
+                // no-op
             }
 
-            fn get_fields(&self) -> syn::Fields {
-                self.#_fields.unwrap()
+            fn get_fields(&self) -> Vec<database::domain::Field> {
+                let mut fields = Vec::new();
+                #fields_build
+                fields
             }
         }
     };
@@ -69,9 +81,9 @@ fn impl_migrate_macro(ast: &syn::DeriveInput) -> TokenStream {
 
 fn compare_states<'a>(
     schema: &'a HashMap<String, String>,
-    structure: &'a HashMap<syn::Ident, syn::Type>,
-) -> HashMap<&'a syn::Ident, &'a syn::Type> {
-    let mut changes: HashMap<&'a syn::Ident, &'a syn::Type> = HashMap::new();
+    structure: &'a HashMap<String, String>,
+) -> HashMap<&'a String, &'a String> {
+    let mut changes: HashMap<&'a String, &'a String> = HashMap::new();
     //check if structure's ks are already in schema
     for (k, v) in structure.iter() {
         if let None = schema.get(&k.to_string()) {
@@ -88,7 +100,9 @@ fn compare_states<'a>(
     changes
 }
 
-fn get_schema(cnxn: &mut database::Connection) -> Result<HashMap<String, String>, InternalMigrationError> {
+fn get_schema(
+    cnxn: &mut database::Connection,
+) -> Result<HashMap<String, String>, InternalMigrationError> {
     let hash_map: HashMap<String, String> = cnxn
         .query_schema("account")
         .map_err(|e| InternalMigrationErrorKind::Inner(e))
@@ -121,6 +135,7 @@ fn get_schema(cnxn: &mut database::Connection) -> Result<HashMap<String, String>
 // }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct InternalMigrationError {
     pub kind: InternalMigrationErrorKind,
 }

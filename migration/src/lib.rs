@@ -1,4 +1,3 @@
-
 // #[macro_export]
 // macro_rules! model_comparer {
 //     ( $data_set:expr, $get_schema:expr ) => {{
@@ -43,5 +42,5 @@
 
 pub trait Migrate {
     fn migrate(&self);
-    fn get_fields(&self) -> syn::Fields;
+    fn get_fields(&self) -> Vec<database::domain::Field>;
 }

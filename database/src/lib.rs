@@ -5,7 +5,6 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use crate::util::Conf;
 
 use postgres::{Client, NoTls};
-use syn;
 use regex::Regex;
 
 #[derive(Debug)]
@@ -114,7 +113,7 @@ impl Ddl {
     pub fn new(
         ddl_type: DdlType,
         table_name: &str,
-        fields: &HashMap<&syn::Ident, &syn::Type>,
+        fields: &HashMap<&String, &String>,
     ) -> Self {
         let instance = Self {
             sql_statement: match ddl_type {
@@ -434,7 +433,12 @@ impl ActiveConnection for Connection {
     }
 
     fn execute_ddl(&mut self, ddl: Ddl) {
-        let _ = self.client.query(&ddl.sql_statement, &[]);
+        // Execute each statement separately to avoid prepared statement multi-command error.
+        for stmt in ddl.sql_statement.split(';') {
+            let s = stmt.trim();
+            if s.is_empty() { continue; }
+            let _ = self.client.simple_query(&format!("{s};"));
+        }
     }
 
     fn close() {
