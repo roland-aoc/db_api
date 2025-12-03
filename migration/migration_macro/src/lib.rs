@@ -3,23 +3,64 @@ use quote::quote;
 use std::collections::HashMap;
 
 use database::{self, ActiveConnection, DdlType};
-use syn::{self, Data, DeriveInput};
+use std::fs;
+use std::path::PathBuf;
+use syn::{Data, DeriveInput, parse_macro_input};
 
 #[proc_macro_derive(Migrate)]
 pub fn migrate_macro_derive(input: TokenStream) -> TokenStream {
-    let ast: DeriveInput = syn::parse(input).unwrap();
+    let ast = parse_macro_input!(input as DeriveInput);
     impl_migrate_macro(&ast)
 }
 
 fn impl_migrate_macro(ast: &DeriveInput) -> TokenStream {
     let name = &ast.ident;
+    let struct_name = &ast.ident;
+    let guard_name = quote::format_ident!(
+        "__{}_MIGRATION_GUARD",
+        struct_name.to_string().to_uppercase()
+    );
 
-    // Build code to push database::domain::Field entries at runtime.
     let fields_build = match &ast.data {
         Data::Struct(d) => {
-            let mut cnxn = get_connection().expect("Connection could't be gotten!"); //TODO add errior handling
-            let schema: HashMap<String, String> =
-                get_schema(&mut cnxn).expect("Couldn't get schema!"); //TODO add error handling
+            let marker_file = get_marker_path(&name.to_string());
+
+            let _changes_as_rust_types = if !marker_file.exists() {
+                let mut cnxn = get_connection().expect("Connection could't be gotten!");
+                let schema: HashMap<String, String> =
+                    get_schema(&mut cnxn).expect("Couldn't get schema!");
+
+                let structure: Vec<(String, String)> = d
+                    .fields
+                    .iter()
+                    .filter_map(|f| {
+                        let _ident = f.ident.as_ref()?;
+                        let ty = &f.ty;
+                        Some((
+                            stringify!(#_ident).to_string(),
+                            quote::quote!(#ty).to_string(),
+                        ))
+                    })
+                    .collect();
+
+                let structure_map: HashMap<String, String> = structure.iter().cloned().collect();
+
+                let changes = compare_states(&schema, &structure_map);
+
+                if !changes.is_empty() {
+                    cnxn.execute_ddl(database::Ddl::new(
+                        DdlType::Create,
+                        &name.to_string(),
+                        &changes,
+                    ));
+                }
+                fs::create_dir_all(marker_file.parent().unwrap()).ok();
+                fs::write(&marker_file, "migrated").ok();
+
+                changes
+            } else {
+                HashMap::new()
+            };
 
             let structure: Vec<(String, String)> = d
                 .fields
@@ -34,13 +75,6 @@ fn impl_migrate_macro(ast: &DeriveInput) -> TokenStream {
                 })
                 .collect();
 
-            let structure_map: HashMap<String, String> = structure
-            .iter()
-            .cloned()
-            .collect();
-
-            let changes_as_rust_types = compare_states(&schema, &structure_map);
-
             let fields_as_tokens = structure
                 .iter()
                 .map(|(name, ty)| {
@@ -53,20 +87,17 @@ fn impl_migrate_macro(ast: &DeriveInput) -> TokenStream {
                 })
                 .collect::<Vec<_>>();
 
-            cnxn.execute_ddl(database::Ddl::new(
-                DdlType::Create,
-                &name.to_string(),
-                &changes_as_rust_types,
-            ));
             quote! { #(#fields_as_tokens)* }
         }
         _ => quote! {},
     };
 
     let generated = quote! {
-        impl migration::Migrate for #name {
+        static #guard_name: std::sync::Once = std::sync::Once::new();
+
+        impl migration::Migrate for #struct_name {
             fn migrate(&self) {
-                // no-op
+                // Noop
             }
 
             fn get_fields(&self) -> Vec<database::domain::Field> {
@@ -79,24 +110,25 @@ fn impl_migrate_macro(ast: &DeriveInput) -> TokenStream {
     generated.into()
 }
 
-fn compare_states<'a>(
-    schema: &'a HashMap<String, String>,
-    structure: &'a HashMap<String, String>,
-) -> HashMap<&'a String, &'a String> {
-    let mut changes: HashMap<&'a String, &'a String> = HashMap::new();
+fn get_marker_path(struct_name: &str) -> PathBuf {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("target");
+    path.push(".migration_markers");
+    path.push(format!("{}.marker", struct_name.to_lowercase()));
+    path
+}
+
+fn compare_states(
+    schema: &HashMap<String, String>,
+    structure: &HashMap<String, String>,
+) -> HashMap<String, String> {
+    let mut changes: HashMap<String, String> = HashMap::new();
     //check if structure's ks are already in schema
     for (k, v) in structure.iter() {
-        if let None = schema.get(&k.to_string()) {
-            changes.insert(k, v);
+        if !schema.contains_key(k) {
+            changes.insert(k.clone(), v.clone());
         }
     }
-    // println!("Current HashMap: {:?}", changes);
-    //delete current fields
-
-    // let mut diff: HashMap<String, String> = structure.iter()
-    // .filter(|(&k, _)| schema.get(&k).is_none())
-    // .collect();
-    // }
     changes
 }
 

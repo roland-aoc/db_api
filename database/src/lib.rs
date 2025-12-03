@@ -113,7 +113,7 @@ impl Ddl {
     pub fn new(
         ddl_type: DdlType,
         table_name: &str,
-        fields: &HashMap<&String, &String>,
+        fields: &HashMap<String, String>,
     ) -> Self {
         let instance = Self {
             sql_statement: match ddl_type {
